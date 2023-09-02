@@ -6,7 +6,7 @@ from typing import Dict, Optional
 import torch
 from datasets import Dataset, load_dataset
 from peft import AutoPeftModelForCausalLM, LoraConfig
-from transformers import AutoTokenizer, HfArgumentParser, TrainingArguments
+from transformers import AutoTokenizer, HfArgumentParser, TrainingArguments, AutoModelForCausalLM
 
 from trl import DPOTrainer
 
@@ -23,7 +23,7 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="../sft/results/final_checkpoint",
+        default="meta-llama/Llama-2-7b-hf",
         metadata={"help": "the location of the SFT model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     script_args = parser.parse_args_into_dataclasses()[0]
 
     # 1. load a pretrained model
-    model = AutoPeftModelForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16,
@@ -138,13 +138,13 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    model_ref = AutoPeftModelForCausalLM.from_pretrained(
+    model_ref = AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
         low_cpu_mem_usage=True,
         torch_dtype=torch.float16,
         load_in_4bit=True,
     )
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name_or_path)
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the Stack-exchange paired dataset
