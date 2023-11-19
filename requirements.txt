@@ -4,3 +4,10 @@ tqdm
 transformers
 accelerate
 peft>=0.3.0
+accelerate
+colorama
+bitsandbytes
+sentencepiece
+streamlit
+transformers_stream_generator
+cpm_kernels

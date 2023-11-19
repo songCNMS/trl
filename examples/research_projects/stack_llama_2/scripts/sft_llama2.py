@@ -2,9 +2,10 @@
 import os
 from dataclasses import dataclass, field
 from typing import Optional
-
+import pickle
+import glob
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from peft import AutoPeftModelForCausalLM, LoraConfig
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
@@ -24,18 +25,18 @@ class ScriptArguments:
     size_valid_set: Optional[int] = field(default=4000, metadata={"help": "the size of the validation set"})
     streaming: Optional[bool] = field(default=True, metadata={"help": "whether to stream the dataset"})
     shuffle_buffer: Optional[int] = field(default=5000, metadata={"help": "the shuffle buffer size"})
-    seq_length: Optional[int] = field(default=1024, metadata={"help": "the sequence length"})
+    seq_length: Optional[int] = field(default=10000, metadata={"help": "the sequence length"})
 
-    max_steps: Optional[int] = field(default=500, metadata={"help": "the maximum number of sgd steps"})
-    logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
-    save_steps: Optional[int] = field(default=10, metadata={"help": "the saving frequency"})
-    per_device_train_batch_size: Optional[int] = field(default=4, metadata={"help": "the per device train batch size"})
+    max_steps: Optional[int] = field(default=1000, metadata={"help": "the maximum number of sgd steps"})
+    logging_steps: Optional[int] = field(default=100, metadata={"help": "the logging frequency"})
+    save_steps: Optional[int] = field(default=100, metadata={"help": "the saving frequency"})
+    per_device_train_batch_size: Optional[int] = field(default=1, metadata={"help": "the per device train batch size"})
     per_device_eval_batch_size: Optional[int] = field(default=1, metadata={"help": "the per device eval batch size"})
     gradient_accumulation_steps: Optional[int] = field(default=2, metadata={"help": "the gradient accumulation steps"})
     gradient_checkpointing: Optional[bool] = field(
         default=True, metadata={"help": "whether to use gradient checkpointing"}
     )
-    group_by_length: Optional[bool] = field(default=True, metadata={"help": "whether to group by length"})
+    group_by_length: Optional[bool] = field(default=False, metadata={"help": "whether to group by length"})
 
     lora_alpha: Optional[float] = field(default=16, metadata={"help": "the lora alpha parameter"})
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "the lora dropout parameter"})
@@ -92,25 +93,65 @@ def prepare_sample_text(example):
     return text
 
 
+# def create_datasets(tokenizer, args):
+#     dataset = load_dataset(
+#         args.dataset_name,
+#         data_dir=args.subset,
+#         split=args.split,
+#         use_auth_token=True,
+#         num_proc=args.num_workers if not args.streaming else None,
+#         streaming=args.streaming,
+#     )
+#     if args.streaming:
+#         print("Loading the dataset in streaming mode")
+#         valid_data = dataset.take(args.size_valid_set)
+#         train_data = dataset.skip(args.size_valid_set)
+#         train_data = train_data.shuffle(buffer_size=args.shuffle_buffer, seed=None)
+#     else:
+#         dataset = dataset.train_test_split(test_size=0.005, seed=None)
+#         train_data = dataset["train"]
+#         valid_data = dataset["test"]
+#         print(f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}")
+
+#     chars_per_token = chars_token_ratio(train_data, tokenizer)
+#     print(f"The character to token ratio of the dataset is: {chars_per_token:.2f}")
+
+#     train_dataset = ConstantLengthDataset(
+#         tokenizer,
+#         train_data,
+#         formatting_func=prepare_sample_text,
+#         infinite=True,
+#         seq_length=args.seq_length,
+#         chars_per_token=chars_per_token,
+#     )
+#     valid_dataset = ConstantLengthDataset(
+#         tokenizer,
+#         valid_data,
+#         formatting_func=prepare_sample_text,
+#         infinite=False,
+#         seq_length=args.seq_length,
+#         chars_per_token=chars_per_token,
+#     )
+#     return train_dataset, valid_dataset
+
+
 def create_datasets(tokenizer, args):
-    dataset = load_dataset(
-        args.dataset_name,
-        data_dir=args.subset,
-        split=args.split,
-        use_auth_token=True,
-        num_proc=args.num_workers if not args.streaming else None,
-        streaming=args.streaming,
-    )
-    if args.streaming:
-        print("Loading the dataset in streaming mode")
-        valid_data = dataset.take(args.size_valid_set)
-        train_data = dataset.skip(args.size_valid_set)
-        train_data = train_data.shuffle(buffer_size=args.shuffle_buffer, seed=None)
-    else:
-        dataset = dataset.train_test_split(test_size=0.005, seed=None)
-        train_data = dataset["train"]
-        valid_data = dataset["test"]
-        print(f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}")
+    prompt_list = []
+    action_list = []
+    for file_name in glob.glob("results/demos_full/*.pkl"):
+        with open(file_name, "rb") as f:
+            dd = pickle.load(f)
+        for prompt, action, justification in dd['prompt']:
+            prompt_list.append(prompt.replace("""Please give your action in the following json format: \\{"action": an integer between 0 and 3, "justification": "justification of your choice."\\}""", ""))
+            action_list.append(action)
+            
+    num_samples = len(prompt_list)
+    test_ratio = 0.2
+    train_samples_num = int(num_samples*(1-test_ratio))
+            
+    train_data = Dataset.from_dict({"question": prompt_list[:train_samples_num], "response_j": action_list[:train_samples_num]})
+    valid_data = Dataset.from_dict({"question": prompt_list[train_samples_num:], "response_j": action_list[train_samples_num:]})
+
 
     chars_per_token = chars_token_ratio(train_data, tokenizer)
     print(f"The character to token ratio of the dataset is: {chars_per_token:.2f}")
@@ -190,7 +231,7 @@ trainer = SFTTrainer(
     eval_dataset=eval_dataset,
     peft_config=peft_config,
     packing=True,
-    max_seq_length=None,
+    max_seq_length=10000,
     tokenizer=tokenizer,
     args=training_args,
 )

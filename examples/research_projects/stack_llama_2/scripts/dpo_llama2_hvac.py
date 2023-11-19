@@ -9,6 +9,8 @@ from datasets import Dataset, load_dataset
 from peft import AutoPeftModelForCausalLM, LoraConfig
 from transformers import AutoTokenizer, HfArgumentParser, TrainingArguments, AutoModelForCausalLM
 import glob
+from peft import LoraConfig, TaskType, get_peft_model
+
  
 from trl import DPOTrainer
 
@@ -25,7 +27,8 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="meta-llama/Llama-2-13b-hf",
+        # default="meta-llama/Llama-2-7b-hf",
+        default="baichuan-inc/Baichuan2-7B-Chat-4bits",
         metadata={"help": "the location of the SFT model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
@@ -149,9 +152,9 @@ if __name__ == "__main__":
     # 1. load a pretrained model
     model = AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
-        low_cpu_mem_usage=True,
-        torch_dtype=torch.float16,
-        load_in_4bit=True,
+        device_map="cuda:0", 
+        trust_remote_code=True,
+        load_in_4bits=True,
     )
     model.config.use_cache = False
 
@@ -163,15 +166,16 @@ if __name__ == "__main__":
 
     model_ref = AutoModelForCausalLM.from_pretrained(
         script_args.model_name_or_path,
-        low_cpu_mem_usage=True,
-        torch_dtype=torch.float16,
-        load_in_4bit=True,
+        device_map="cuda:0", 
+        trust_remote_code=True,
+        load_in_4bits=True,
     )
-    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(script_args.model_name_or_path,
+                                              use_fast=False, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the Stack-exchange paired dataset
-    train_dataset, eval_dataset = get_hvac_paired(data_dir="/app/azureuser/trl/demo_pairs/", sanity_check=False)
+    train_dataset, eval_dataset = get_hvac_paired(data_dir="/home/lesong/lamorel/results/demo_pairs/", sanity_check=False)
     train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
@@ -210,27 +214,38 @@ if __name__ == "__main__":
         lr_scheduler_type=script_args.lr_scheduler_type,
         warmup_steps=script_args.warmup_steps,
         optim=script_args.optimizer_type,
-        bf16=True,
+        bf16=False,
         remove_unused_columns=False,
-        run_name="dpo_llama2",
+        run_name="dpo_baichuan2-13B-4bit",
     )
 
     peft_config = LoraConfig(
-        r=script_args.lora_r,
-        lora_alpha=script_args.lora_alpha,
-        lora_dropout=script_args.lora_dropout,
-        target_modules=[
-            "q_proj",
-            "v_proj",
-            "k_proj",
-            "out_proj",
-            "fc_in",
-            "fc_out",
-            "wte",
-        ],
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
+            task_type=TaskType.CAUSAL_LM,
+            target_modules=["W_pack"],
+            inference_mode=False,
+            r=4,
+            lora_alpha=32,
+            lora_dropout=0.1,
+        )
+    model.enable_input_require_grads()
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+    # peft_config = LoraConfig(
+    #     r=script_args.lora_r,
+    #     lora_alpha=script_args.lora_alpha,
+    #     lora_dropout=script_args.lora_dropout,
+    #     target_modules=[
+    #         "q_proj",
+    #         "v_proj",
+    #         "k_proj",
+    #         "out_proj",
+    #         "fc_in",
+    #         "fc_out",
+    #         "wte",
+    #     ],
+    #     bias="none",
+    #     task_type="CAUSAL_LM",
+    # )
 
     # 5. initialize the DPO trainer
     dpo_trainer = DPOTrainer(
