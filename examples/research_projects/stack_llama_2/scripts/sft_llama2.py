@@ -13,6 +13,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import SFTTrainer
 from trl.trainer import ConstantLengthDataset
 
+os.environ["HF_HOME"] = "/data/lesong/"
+
+seq_length = 2000
 
 @dataclass
 class ScriptArguments:
@@ -25,7 +28,7 @@ class ScriptArguments:
     size_valid_set: Optional[int] = field(default=4000, metadata={"help": "the size of the validation set"})
     streaming: Optional[bool] = field(default=True, metadata={"help": "whether to stream the dataset"})
     shuffle_buffer: Optional[int] = field(default=5000, metadata={"help": "the shuffle buffer size"})
-    seq_length: Optional[int] = field(default=10000, metadata={"help": "the sequence length"})
+    seq_length: Optional[int] = field(default=seq_length, metadata={"help": "the sequence length"})
 
     max_steps: Optional[int] = field(default=1000, metadata={"help": "the maximum number of sgd steps"})
     logging_steps: Optional[int] = field(default=100, metadata={"help": "the logging frequency"})
@@ -136,8 +139,8 @@ def prepare_sample_text(example):
 
 
 def create_datasets(tokenizer, args):
-    with open("../GPT4HVAC/state_demo_pairs.pkl", "rb") as f:
-        state_demo_pairs = pickle.dump(f)  
+    with open("./state_demo_pairs.pkl", "rb") as f:
+        state_demo_pairs = pickle.load(f)  
     
     prompt_list = state_demo_pairs["obs"]
     action_list = state_demo_pairs["demo"]
@@ -228,7 +231,7 @@ trainer = SFTTrainer(
     eval_dataset=eval_dataset,
     peft_config=peft_config,
     packing=True,
-    max_seq_length=10000,
+    max_seq_length=seq_length,
     tokenizer=tokenizer,
     args=training_args,
 )
