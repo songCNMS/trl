@@ -136,15 +136,12 @@ def prepare_sample_text(example):
 
 
 def create_datasets(tokenizer, args):
-    prompt_list = []
-    action_list = []
-    for file_name in glob.glob("results/demos_full/*.pkl"):
-        with open(file_name, "rb") as f:
-            dd = pickle.load(f)
-        for prompt, action, justification in dd['prompt']:
-            prompt_list.append(prompt.replace("""Please give your action in the following json format: \\{"action": an integer between 0 and 3, "justification": "justification of your choice."\\}""", ""))
-            action_list.append(action)
-            
+    with open("../GPT4HVAC/state_demo_pairs.pkl", "rb") as f:
+        state_demo_pairs = pickle.dump(f)  
+    
+    prompt_list = state_demo_pairs["obs"]
+    action_list = state_demo_pairs["demo"]
+    
     num_samples = len(prompt_list)
     test_ratio = 0.2
     train_samples_num = int(num_samples*(1-test_ratio))
