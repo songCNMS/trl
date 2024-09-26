@@ -17,30 +17,31 @@ In general, the optimal configuration for CPO will be similar to that of DPO:
 
 # regular:
 python examples/scripts/cpo.py \
-    --model_name_or_path=gpt2 \
+    --model_name_or_path=Qwen/Qwen2.5-3B-Instruct \
     --per_device_train_batch_size 4 \
     --max_steps 1000 \
     --learning_rate 8e-6 \
     --gradient_accumulation_steps 1 \
     --logging_steps 10 \
     --eval_steps 500 \
-    --output_dir="gpt2-aligned-cpo" \
+    --output_dir="qwen-3b-aligned-cpo" \
     --warmup_steps 150 \
     --report_to wandb \
     --bf16 \
     --logging_first_step \
+    --max_prompt_length 1024 \
     --no_remove_unused_columns
 
 # peft:
 python examples/scripts/cpo.py \
-    --model_name_or_path=gpt2 \
-    --per_device_train_batch_size 4 \
-    --max_steps 1000 \
+    --model_name_or_path=Qwen/Qwen2.5-3B-Instruct \
+    --per_device_train_batch_size 1 \
+    --max_steps 5000 \
     --learning_rate 8e-5 \
     --gradient_accumulation_steps 1 \
-    --logging_steps 10 \
+    --logging_steps 100 \
     --eval_steps 500 \
-    --output_dir="gpt2-lora-aligned-cpo" \
+    --output_dir="qwen-3b-lora-aligned-cpo" \
     --optim rmsprop \
     --warmup_steps 150 \
     --report_to wandb \
@@ -49,7 +50,11 @@ python examples/scripts/cpo.py \
     --no_remove_unused_columns \
     --use_peft \
     --lora_r=16 \
-    --lora_alpha=16
+    --lora_alpha=16 \
+    --max_prompt_length=10240 \
+    --max_completion_length=512 \
+    --loss_type="simpo" \
+    --cpo_alpha=1.0
 """
 
 from dataclasses import dataclass, field
@@ -89,7 +94,12 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    dataset = load_dataset(args.dataset_name)
+    # dataset = load_dataset(args.dataset_name)
+    
+    dataset = load_dataset("json", data_files="cpo_data.json")
+    print(dataset)
+    dataset = dataset["train"].train_test_split(test_size=0.1)
+    
     if tokenizer.chat_template is None:
         tokenizer.chat_template = SIMPLE_CHAT_TEMPLATE
 
@@ -98,10 +108,13 @@ if __name__ == "__main__":
         row["rejected"] = tokenizer.apply_chat_template(row["rejected"], tokenize=False)
         return row
 
+
     # Compute that only on the main process for faster data processing.
     # see: https://github.com/huggingface/trl/pull/1255
     with PartialState().local_main_process_first():
         dataset = dataset.map(process, num_proc=training_args.dataset_num_proc)
+
+    print(dataset)
 
     ################
     # Training
