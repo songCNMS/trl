@@ -37,14 +37,14 @@ python examples/scripts/cpo.py \
 
 # peft:
 python examples/scripts/cpo.py \
-    --model_name_or_path=Qwen/Qwen2.5-3B-Instruct \
+    --model_name_or_path=Qwen/Qwen2.5-7B-Instruct \
     --per_device_train_batch_size 1 \
     --max_steps 5000 \
     --learning_rate 8e-5 \
     --gradient_accumulation_steps 1 \
     --logging_steps 100 \
     --eval_steps 500 \
-    --output_dir="qwen-3b-lora-aligned-cpo" \
+    --output_dir="logs/qwen-7b-lora-aligned-cpo" \
     --optim rmsprop \
     --warmup_steps 150 \
     --report_to wandb \
@@ -54,8 +54,8 @@ python examples/scripts/cpo.py \
     --use_peft \
     --lora_r=16 \
     --lora_alpha=16 \
-    --max_prompt_length=10240 \
-    --max_completion_length=512 \
+    --max_prompt_length=1280 \
+    --max_completion_length=128 \
     --loss_type="simpo" \
     --cpo_alpha=1.0
 """

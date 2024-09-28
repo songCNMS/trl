@@ -62,7 +62,7 @@ jobs:
     - export PYTHONPATH=$PWD:$PYTHONPATH; python examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-3B-Instruct --per_device_train_batch_size 1 --max_steps 5000 --learning_rate 8e-6 --gradient_accumulation_steps 1 --logging_steps 10 --eval_steps 500 --output_dir="logs/qwen-3b-full-aligned-cpo" --warmup_steps 150 --report_to wandb --bf16 --logging_first_step --max_prompt_length 1024 --max_completion_length=256 --loss_type="simpo" --cpo_alpha=1.0
 
 
-# search:
+# search: 
 #   job_template:
 # # you may use {random_string:s} to avoid job name collisions
 # # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
