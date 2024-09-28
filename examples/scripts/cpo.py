@@ -18,18 +18,21 @@ In general, the optimal configuration for CPO will be similar to that of DPO:
 # regular:
 python examples/scripts/cpo.py \
     --model_name_or_path=Qwen/Qwen2.5-3B-Instruct \
-    --per_device_train_batch_size 4 \
-    --max_steps 1000 \
+    --per_device_train_batch_size 1 \
+    --max_steps 5000 \
     --learning_rate 8e-6 \
     --gradient_accumulation_steps 1 \
     --logging_steps 10 \
     --eval_steps 500 \
-    --output_dir="qwen-3b-aligned-cpo" \
+    --output_dir="logs/qwen-3b-full-aligned-cpo" \
     --warmup_steps 150 \
     --report_to wandb \
     --bf16 \
     --logging_first_step \
     --max_prompt_length 1024 \
+    --max_completion_length=256 \
+    --loss_type="simpo" \
+    --cpo_alpha=1.0
     --no_remove_unused_columns
 
 # peft:
@@ -56,7 +59,7 @@ python examples/scripts/cpo.py \
     --loss_type="simpo" \
     --cpo_alpha=1.0
 """
-
+import os
 from dataclasses import dataclass, field
 
 from accelerate import PartialState
@@ -65,6 +68,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
 
 from trl import CPOConfig, CPOTrainer, ModelConfig, get_peft_config
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
+
+from trl.gpt_api_config import *
 
 
 @dataclass
@@ -78,6 +83,7 @@ class ScriptArguments:
 if __name__ == "__main__":
     parser = HfArgumentParser((ScriptArguments, CPOConfig, ModelConfig))
     args, training_args, model_config = parser.parse_args_into_dataclasses()
+
 
     ################
     # Model & Tokenizer
@@ -96,8 +102,9 @@ if __name__ == "__main__":
     ################
     # dataset = load_dataset(args.dataset_name)
     
-    dataset = load_dataset("json", data_files="cpo_data.json")
-    print(dataset)
+    data_dir_loc = os.path.join(os.getenv('AMLT_DATA_DIR', "./data/"))
+    print(data_dir_loc)
+    dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data.json")
     dataset = dataset["train"].train_test_split(test_size=0.1)
     
     if tokenizer.chat_template is None:
@@ -130,4 +137,5 @@ if __name__ == "__main__":
 
     # train and save the model
     trainer.train()
-    trainer.save_model(training_args.output_dir)
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./logs/"))
+    trainer.save_model(f"{output_dir_loc}/{training_args.output_dir}")

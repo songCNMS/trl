@@ -146,3 +146,6 @@ wandb/
 
 # cli scripts that are symlinked from `examples/scripts`
 trl/commands/scripts/
+data
+logs
+amlt
