@@ -30,25 +30,24 @@ python examples/scripts/sft.py \
 
 # peft:
 python examples/scripts/sft.py \
-    --model_name_or_path="facebook/opt-350m" \
+    --model_name_or_path="Qwen/Qwen2.5-3B-Instruct" \
     --dataset_text_field="text" \
     --report_to="wandb" \
     --learning_rate=1.41e-5 \
-    --per_device_train_batch_size=64 \
-    --gradient_accumulation_steps=16 \
-    --output_dir="sft_openassistant-guanaco" \
+    --per_device_train_batch_size=8 \
+    --gradient_accumulation_steps=4 \
+    --output_dir="logs/qwen2.5-3B-sft-Instruct" \
     --logging_steps=1 \
-    --num_train_epochs=3 \
+    --num_train_epochs=5000 \
     --max_steps=-1 \
-    --push_to_hub \
     --gradient_checkpointing \
     --use_peft \
     --lora_r=64 \
-    --lora_alpha=16
+    --lora_alpha=16 
 """
 
 from trl.commands.cli_utils import SFTScriptArguments, TrlParser
-
+import os
 
 from datasets import load_dataset
 
@@ -90,16 +89,21 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    dataset = load_dataset(args.dataset_name)
-
+    # dataset = load_dataset(args.dataset_name)
+    data_dir_loc = os.path.join(os.getenv('AMLT_DATA_DIR', "./data/"))
+    print(data_dir_loc)
+    dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data.json")
+    dataset
+    dataset = dataset["train"].train_test_split(test_size=0.1)
+    print(dataset)
     ################
     # Training
     ################
     trainer = SFTTrainer(
         model=model_config.model_name_or_path,
         args=training_args,
-        train_dataset=dataset[args.dataset_train_split],
-        eval_dataset=dataset[args.dataset_test_split],
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["test"],
         tokenizer=tokenizer,
         peft_config=get_peft_config(model_config),
     )

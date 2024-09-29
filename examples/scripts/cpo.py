@@ -137,5 +137,5 @@ if __name__ == "__main__":
 
     # train and save the model
     trainer.train()
-    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./logs/"))
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
     trainer.save_model(f"{output_dir_loc}/{training_args.output_dir}")
