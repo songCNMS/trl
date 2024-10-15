@@ -149,3 +149,4 @@ trl/commands/scripts/
 data
 logs
 amlt
+gpt_api_config.py
