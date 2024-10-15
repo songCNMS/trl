@@ -1,0 +1,65 @@
+description: Task Decomposition
+
+  
+environment:
+  image: lesong/nvidia-cuda:v5
+  username: f2e15e898c154795b7a8c9a9d936095d
+  registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
+  setup:
+    - apt-get update -y
+    - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+    - pip install azureml-mlflow tensorboard --user
+    - pip install -r requirements.txt
+    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+    - pip install -U tqdm
+    - pip install --upgrade jinja2>=3.0
+    - pip install trl transformers tokenizers peft
+
+    
+target:
+  service: sing
+  name: msrresrchvc
+  # name: msrresrchlab
+  workspace_name: rag-workspace-eastus
+
+data:
+  local_dir: ./data/
+  remote_dir: data/
+
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: ./
+  
+
+search:
+  job_template:
+    # you may use {random_string:s} to avoid job name collisions
+    # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
+    # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
+    name: "{experiment_name:s}_{auto:3s}"
+    identity: managed
+    submit_args:
+      env:
+        _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+    sku: 80G1
+    sla_tier: Standard #Premium
+    command:
+    - export PYTHONPATH=$$PWD:$$PYTHONPATH; python examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-7B-Instruct --beta {beta} --per_device_train_batch_size 2 --max_steps 50000 --learning_rate 8e-5 --gradient_accumulation_steps 1 --logging_steps 1000 --eval_steps 1000 --save_steps 10000 --output_dir="logs/qwen-7b-lora-aligned-cpo" --optim rmsprop --warmup_steps 150 --report_to wandb --bf16 --logging_first_step --no_remove_unused_columns --use_peft --lora_r=16 --lora_alpha={lora_alpha} --max_prompt_length=3072 --max_completion_length=1024 --max_length=4096 --loss_type={loss_type} --cpo_alpha={cpo_alpha} --simpo_gamma {simpo_gamma}
+  type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
+  sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
+  max_trials: 108
+  parallel_trials: 6  # number of trials to run in parallel. Default: equals to max_trials.
+  params:
+    - name: lora_alpha
+      values: [8, 16, 64]  # or equivalently choice(0.5, 0.9, 0.99)
+    - name: loss_type
+      # spec: hyperdrive  # the default value
+      values: ["simpo"]
+    - name: cpo_alpha
+      # spec: hyperdrive  # the default value
+      values: [0.05, 1.0, 4.0, 10.0]
+    - name: beta
+      values: [0.1, 0.5, 1.0]
+    - name: simpo_gamma
+      values: [0.1, 0.5, 1.0]

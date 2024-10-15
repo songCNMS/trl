@@ -46,6 +46,11 @@ python examples/scripts/dpo.py \
     --lora_r 32 \
     --lora_alpha 16
 """
+import os
+from pathlib import Path
+path = Path(os.path.dirname(os.path.realpath(__file__)))
+import sys
+sys.path.append(str(path.parent.parent.absolute()))
 
 from trl.commands.cli_utils import DPOScriptArguments, TrlParser
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
@@ -63,6 +68,7 @@ from trl import (
     maybe_extract_prompt,
     maybe_apply_chat_template,
 )
+import examples.scripts.gpt_api_config as gpt_api_config
 
 
 if __name__ == "__main__":

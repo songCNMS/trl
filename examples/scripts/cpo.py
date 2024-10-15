@@ -69,7 +69,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
 from trl import CPOConfig, CPOTrainer, ModelConfig, get_peft_config
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
-from trl.gpt_api_config import *
+from gpt_api_config import *
 
 
 @dataclass
@@ -81,6 +81,7 @@ class ScriptArguments:
 
 
 if __name__ == "__main__":
+    
     parser = HfArgumentParser((ScriptArguments, CPOConfig, ModelConfig))
     args, training_args, model_config = parser.parse_args_into_dataclasses()
 

@@ -30,22 +30,27 @@ python examples/scripts/sft.py \
 
 # peft:
 python examples/scripts/sft.py \
-    --model_name_or_path="Qwen/Qwen2.5-3B-Instruct" \
+    --model_name_or_path="Qwen/Qwen2.5-7B-Instruct" \
     --dataset_text_field="text" \
     --report_to="wandb" \
     --learning_rate=1.41e-5 \
     --per_device_train_batch_size=8 \
     --gradient_accumulation_steps=4 \
-    --output_dir="logs/qwen2.5-3B-sft-Instruct" \
-    --logging_steps=1 \
-    --num_train_epochs=5000 \
+    --output_dir="logs/qwen2.5-7B-sft-Instruct" \
+    --logging_steps=1000 \
+    --save_steps=10000 \
+    --num_train_epochs=100 \
     --max_steps=-1 \
     --gradient_checkpointing \
     --use_peft \
     --lora_r=64 \
     --lora_alpha=16 
 """
-
+import os
+from pathlib import Path
+path = Path(os.path.dirname(os.path.realpath(__file__)))
+import sys
+sys.path.append(str(path.parent.parent.absolute()))
 from trl.commands.cli_utils import SFTScriptArguments, TrlParser
 import os
 
@@ -61,6 +66,7 @@ from trl import (
     get_quantization_config,
     get_kbit_device_map,
 )
+from gpt_api_config import *
 
 
 if __name__ == "__main__":
@@ -93,12 +99,15 @@ if __name__ == "__main__":
     data_dir_loc = os.path.join(os.getenv('AMLT_DATA_DIR', "./data/"))
     print(data_dir_loc)
     dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data.json")
-    dataset
     dataset = dataset["train"].train_test_split(test_size=0.1)
     print(dataset)
     ################
     # Training
     ################
+    def formatting_func(example):
+        text = example["text"]
+        return text
+    
     trainer = SFTTrainer(
         model=model_config.model_name_or_path,
         args=training_args,
@@ -106,7 +115,10 @@ if __name__ == "__main__":
         eval_dataset=dataset["test"],
         tokenizer=tokenizer,
         peft_config=get_peft_config(model_config),
+        formatting_func=formatting_func
     )
-
+    
     trainer.train()
-    trainer.save_model(training_args.output_dir)
+
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
+    trainer.save_model(f"{output_dir_loc}/{training_args.output_dir}")

@@ -1,0 +1,98 @@
+description: Task Decomposition
+
+  
+environment:
+  image: lesong/nvidia-cuda:v5
+  username: f2e15e898c154795b7a8c9a9d936095d
+  registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
+  setup:
+    - apt-get update -y
+    - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+    - pip install azureml-mlflow tensorboard --user
+    - pip install -r requirements.txt
+    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+    - pip install -U tqdm
+    - pip install --upgrade jinja2>=3.0
+    - pip install trl transformers tokenizers peft
+
+    
+target:
+  service: sing
+  name: msrresrchvc
+  # name: msrresrchlab
+  workspace_name: rag-workspace-eastus
+
+data:
+  local_dir: ./data/
+  remote_dir: data/
+
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: ./
+  
+
+
+# list of jobs to run, we run 2 jobs in this example
+# jobs:
+# - name: sft-7b
+#   sku: 80G1
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   command:
+#     - python examples/scripts/sft.py --model_name_or_path="Qwen/Qwen2.5-7B-Instruct" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=2 --gradient_accumulation_steps=1 --output_dir="logs/qwen2.5-7B-sft-Instruct" --logging_steps=100 --save_steps=2000 --num_train_epochs=10 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=16 --lora_alpha=32 --max_seq_length 4096
+
+# - name: cpo-7b
+#   sku: 80G1
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   command:
+#     - python examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-7B-Instruct --per_device_train_batch_size 2 --max_steps 5000 --learning_rate 8e-5 --gradient_accumulation_steps 1 --logging_steps 100 --eval_steps 500 --output_dir="logs/qwen-7b-lora-aligned-cpo" --optim rmsprop --warmup_steps 150 --report_to wandb --bf16 --logging_first_step --no_remove_unused_columns --use_peft --lora_r=16 --lora_alpha=16 --max_prompt_length=2560 --max_completion_length=512 --loss_type="simpo" --cpo_alpha=1.0
+
+
+# - name: sft-3b
+#   sku: 80G1
+#   identity: managed
+#   submit_args:
+#     env:
+#       PYTHONPATH: $$PWD:$$PYTHONPATH
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   command:
+#     - python examples/scripts/sft.py --model_name_or_path="Qwen/Qwen2.5-3B-Instruct" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=8 --gradient_accumulation_steps=4 --output_dir="logs/qwen2.5-3B-sft-Instruct" --logging_steps=100 --save_steps=2000 --num_train_epochs=10 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=64 --lora_alpha=16
+
+# - name: cpo-3b
+#   sku: 80G1
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   command:
+#     - python examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-3B-Instruct --per_device_train_batch_size 4 --max_steps 5000 --learning_rate 8e-5 --gradient_accumulation_steps 1 --logging_steps 100 --eval_steps 500 --output_dir="logs/qwen-3b-lora-aligned-cpo" --optim rmsprop --warmup_steps 150 --report_to wandb --bf16 --logging_first_step --no_remove_unused_columns --use_peft --lora_r=16 --lora_alpha=16 --max_prompt_length=2560 --max_completion_length=512 --loss_type="simpo" --cpo_alpha=1.0
+
+
+search:
+  job_template:
+    # you may use {random_string:s} to avoid job name collisions
+    # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
+    # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
+    name: "{experiment_name:s}_{auto:3s}"
+    identity: managed
+    submit_args:
+      env:
+        _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+    sku: 80G1
+    sla_tier: Premium # Standard, Premium
+    command:
+    - export PYTHONPATH=$$PWD:$$PYTHONPATH; python examples/scripts/sft.py --model_name_or_path="Qwen/Qwen2.5-7B-Instruct" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=2 --gradient_accumulation_steps=1 --output_dir="logs/qwen2.5-7B-sft-Instruct" --logging_steps=100 --save_steps=2000 --num_train_epochs=10 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=16 --lora_alpha={lora_alpha} --max_seq_length 4096
+  type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
+  sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
+  max_trials: 5
+  parallel_trials: 2  # number of trials to run in parallel. Default: equals to max_trials.
+  params:
+    - name: lora_alpha
+      values: [4, 8, 16, 32, 64]  # or equivalently choice(0.5, 0.9, 0.99)
+      
