@@ -6,4 +6,3 @@ wandb
 logs
 docker
 tests
-commands

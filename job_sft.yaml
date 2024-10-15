@@ -7,10 +7,12 @@ environment:
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
     - apt-get update -y
+    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+    - export PATH=/home/aiscuser/.local/bin:$$PATH
+    - export PYTHONPATH=$$PWD:$$PYTHONPATH
     - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
     - pip install azureml-mlflow tensorboard --user
     - pip install -r requirements.txt
-    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
     - pip install -U tqdm
     - pip install --upgrade jinja2>=3.0
     - pip install trl transformers tokenizers peft
@@ -87,7 +89,7 @@ search:
     sku: 80G1
     sla_tier: Premium # Standard, Premium
     command:
-    - export PYTHONPATH=$$PWD:$$PYTHONPATH; python examples/scripts/sft.py --model_name_or_path="Qwen/Qwen2.5-7B-Instruct" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=2 --gradient_accumulation_steps=1 --output_dir="logs/qwen2.5-7B-sft-Instruct" --logging_steps=100 --save_steps=2000 --num_train_epochs=10 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=16 --lora_alpha={lora_alpha} --max_seq_length 4096
+    - python examples/scripts/sft.py --model_name_or_path="Qwen/Qwen2.5-7B-Instruct" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=2 --gradient_accumulation_steps=1 --output_dir="logs/qwen2.5-7B-sft-Instruct" --logging_steps=100 --save_steps=2000 --num_train_epochs=10 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=16 --lora_alpha={lora_alpha} --max_seq_length 4096
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
   max_trials: 5
