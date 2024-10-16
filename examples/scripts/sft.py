@@ -100,7 +100,9 @@ if __name__ == "__main__":
     print(data_dir_loc)
     dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data.json")
     dataset = dataset["train"].train_test_split(test_size=0.1)
-    print(dataset)
+    
+    training_args.max_seq_length = max(max([len(ds["text"]) for ds in dataset['train']]), max([len(ds["text"]) for ds in dataset['test']]))+10
+    print(dataset, training_args.max_seq_length)
     ################
     # Training
     ################

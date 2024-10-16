@@ -122,8 +122,15 @@ if __name__ == "__main__":
     with PartialState().local_main_process_first():
         dataset = dataset.map(process, num_proc=training_args.dataset_num_proc)
 
-    print(dataset)
-
+    
+    
+     
+    training_args.max_prompt_length = max(max([len(ds["prompt"]) for ds in dataset["train"]]), max([len(ds["prompt"]) for ds in dataset["test"]])) + 10
+    training_args.max_completion_length = max(max([max(len(ds["chosen"][1]["content"]), len(ds["rejected"][1]["content"])) for ds in dataset["train"]]), 
+                                max([max(len(ds["chosen"][1]["content"]), len(ds["rejected"][1]["content"])) for ds in dataset["test"]]))
+    training_args.max_length = training_args.max_completion_length + training_args.max_prompt_length
+    
+    print(dataset, training_args.max_prompt_length, training_args.max_completion_length, training_args.max_length)
     ################
     # Training
     ################
