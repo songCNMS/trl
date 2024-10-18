@@ -48,7 +48,7 @@ python examples/scripts/sft.py \
 """
 
 
-# python examples/scripts/sft.py     --model_name_or_path="Qwen/Qwen2.5-3B-Instruct"     --dataset_text_field="text"     --report_to="wandb"     --learning_rate=1.41e-5     --per_device_train_batch_size=4     --gradient_accumulation_steps=2     --output_dir="logs/qwen2.5-3B-sft-Instruct"     --logging_steps=100     --save_steps=1000     --num_train_epochs=100     --max_steps=-1     --gradient_checkpointing     --use_peft     --lora_r=64     --lora_alpha=16 
+# python examples/scripts/sft.py     --model_name_or_path="Qwen/Qwen2.5-14B-Instruct"     --dataset_text_field="text"     --report_to="wandb"     --learning_rate=1.41e-5     --per_device_train_batch_size=1     --gradient_accumulation_steps=1 --output_dir="logs/qwen2.5-14B-sft-Instruct"     --logging_steps=100     --save_steps=1000     --num_train_epochs=100     --max_steps=-1     --gradient_checkpointing     --use_peft     --lora_r=64     --lora_alpha=16 
 import os
 
 from pathlib import Path
@@ -69,6 +69,7 @@ from trl import (
     get_peft_config,
     get_quantization_config,
     get_kbit_device_map,
+    DataCollatorForCompletionOnlyLM
 )
 from gpt_api_config import *
 
@@ -114,6 +115,9 @@ if __name__ == "__main__":
         text = example["text"]
         return text
     
+    response_template = "Please give your answer:"
+    collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
+    
     trainer = SFTTrainer(
         model=model_config.model_name_or_path,
         args=training_args,
@@ -121,7 +125,8 @@ if __name__ == "__main__":
         eval_dataset=dataset["test"],
         tokenizer=tokenizer,
         peft_config=get_peft_config(model_config),
-        formatting_func=formatting_func
+        formatting_func=formatting_func,
+        data_collator=collator
     )
     
     trainer.train()
