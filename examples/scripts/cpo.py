@@ -37,14 +37,15 @@ python examples/scripts/cpo.py \
 
 # peft:
 python examples/scripts/cpo.py \
-    --model_name_or_path=Qwen/Qwen2.5-7B-Instruct \
+    --model_name_or_path=Qwen/Qwen2.5-14B-Instruct \
     --per_device_train_batch_size 1 \
-    --max_steps 5000 \
+    --max_steps 50000 \
     --learning_rate 8e-5 \
     --gradient_accumulation_steps 1 \
-    --logging_steps 100 \
-    --eval_steps 500 \
-    --output_dir="logs/qwen-7b-lora-aligned-cpo" \
+    --logging_steps 1000 \
+    --eval_steps 1000 \
+    --save_steps 10000 \
+    --output_dir="logs/qwen-14b-lora-aligned-cpo" \
     --optim rmsprop \
     --warmup_steps 150 \
     --report_to wandb \
@@ -57,7 +58,7 @@ python examples/scripts/cpo.py \
     --max_prompt_length=1280 \
     --max_completion_length=128 \
     --loss_type="simpo" \
-    --cpo_alpha=1.0
+    --cpo_alpha=0.0
 """
 import os
 from dataclasses import dataclass, field
@@ -124,11 +125,12 @@ if __name__ == "__main__":
 
     
     
-     
-    training_args.max_prompt_length = max(max([len(ds["prompt"]) for ds in dataset["train"]]), max([len(ds["prompt"]) for ds in dataset["test"]])) + 10
-    training_args.max_completion_length = max(max([max(len(ds["chosen"][1]["content"]), len(ds["rejected"][1]["content"])) for ds in dataset["train"]]), 
-                                max([max(len(ds["chosen"][1]["content"]), len(ds["rejected"][1]["content"])) for ds in dataset["test"]]))
-    training_args.max_length = training_args.max_completion_length + training_args.max_prompt_length
+    
+    print(dataset["train"][0])
+    training_args.max_prompt_length = max(max([len(ds["prompt"]) for ds in dataset["train"]]), max([len(ds["prompt"]) for ds in dataset["test"]]))
+    training_args.max_length = max(max([max(len(ds["chosen"]), len(ds["rejected"])) for ds in dataset["train"]]), 
+                                max([max(len(ds["chosen"]), len(ds["rejected"])) for ds in dataset["test"]])) + 10
+    training_args.max_completion_length = training_args.max_length - training_args.max_prompt_length
     
     print(dataset, training_args.max_prompt_length, training_args.max_completion_length, training_args.max_length)
     ################
