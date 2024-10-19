@@ -37,7 +37,7 @@ python examples/scripts/cpo.py \
 
 # peft:
 python examples/scripts/cpo.py \
-    --model_name_or_path=Qwen/Qwen2.5-14B-Instruct \
+    --model_name_or_path=Qwen/Qwen2.5-7B-Instruct \
     --per_device_train_batch_size 1 \
     --max_steps 50000 \
     --learning_rate 8e-5 \
@@ -45,7 +45,7 @@ python examples/scripts/cpo.py \
     --logging_steps 1000 \
     --eval_steps 1000 \
     --save_steps 10000 \
-    --output_dir="logs/qwen-14b-lora-aligned-cpo" \
+    --output_dir="logs/qwen-7b-lora-aligned-cpo" \
     --optim rmsprop \
     --warmup_steps 150 \
     --report_to wandb \
@@ -54,11 +54,11 @@ python examples/scripts/cpo.py \
     --no_remove_unused_columns \
     --use_peft \
     --lora_r=16 \
-    --lora_alpha=16 \
+    --lora_alpha=32 \
     --max_prompt_length=1280 \
     --max_completion_length=128 \
     --loss_type="simpo" \
-    --cpo_alpha=0.0
+    --cpo_alpha=1.0
 """
 import os
 from dataclasses import dataclass, field
