@@ -87,10 +87,10 @@ if __name__ == "__main__":
     parser = HfArgumentParser((ScriptArguments, CPOConfig, ModelConfig))
     args, training_args, model_config = parser.parse_args_into_dataclasses()
 
-    output_dir_loc = "./"
-    # output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
-    # sub_dir_loc = os.getenv('AMLT_JOB_NAME', datetime.today().strftime("%Y%m%d-%H%M%S"))
-    sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
+    # output_dir_loc = "./"
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
+    sub_dir_loc = os.getenv('AMLT_JOB_NAME', datetime.today().strftime("%Y%m%d-%H%M%S"))
+    # sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
     os.makedirs(f"{output_dir_loc}/{training_args.output_dir}/{sub_dir_loc}", exist_ok=True)
 
     ################

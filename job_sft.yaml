@@ -7,15 +7,12 @@ environment:
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
     - apt-get update -y
-    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
     - export PATH=/home/aiscuser/.local/bin:$$PATH
     - export PYTHONPATH=$$PWD:$$PYTHONPATH
     - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
     - pip install azureml-mlflow tensorboard --user
     - pip install -r requirements.txt
-    - pip install -U tqdm
-    - pip install --upgrade jinja2>=3.0
-    - pip install trl transformers tokenizers peft
 
     
 target:
@@ -93,7 +90,6 @@ search:
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
   max_trials: 5
-  parallel_trials: 1  # number of trials to run in parallel. Default: equals to max_trials.
   params:
     - name: lora_alpha
       values: [4, 8, 16, 32, 64]  # or equivalently choice(0.5, 0.9, 0.99)

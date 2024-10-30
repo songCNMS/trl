@@ -7,13 +7,12 @@ environment:
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
     - apt-get update -y
+    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
+    - export PATH=/home/aiscuser/.local/bin:$$PATH
+    - export PYTHONPATH=$$PWD:$$PYTHONPATH
     - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
     - pip install azureml-mlflow tensorboard --user
     - pip install -r requirements.txt
-    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
-    - pip install -U tqdm
-    - pip install --upgrade jinja2>=3.0
-    - pip install trl transformers tokenizers peft
 
     
 target:
