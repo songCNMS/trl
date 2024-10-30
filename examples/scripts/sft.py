@@ -78,10 +78,10 @@ if __name__ == "__main__":
     parser = TrlParser((SFTScriptArguments, SFTConfig, ModelConfig))
     args, training_args, model_config = parser.parse_args_and_config()
     
-    # output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
-    # sub_dir_loc = os.getenv('AMLT_JOB_NAME', datetime.today().strftime("%Y%m%d-%H%M%S"))
-    output_dir_loc = "./"
-    sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
+    sub_dir_loc = os.getenv('AMLT_JOB_NAME', datetime.today().strftime("%Y%m%d-%H%M%S"))
+    # output_dir_loc = "./"
+    # sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
     print(output_dir_loc, sub_dir_loc)
     os.makedirs(f"{output_dir_loc}/{training_args.output_dir}/{sub_dir_loc}", exist_ok=True)
 
