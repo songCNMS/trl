@@ -19,8 +19,6 @@ python examples/scripts/reward_modeling.py \
     --output_dir Qwen2-0.5B-Reward \
     --per_device_train_batch_size 8 \
     --num_train_epochs 1 \
-    --gradient_accumulation_steps 1 \
-    --remove_unused_columns False \
     --gradient_checkpointing True \
     --learning_rate 1.0e-5 \
     --logging_steps 25 \
@@ -32,17 +30,15 @@ LoRA:
 python examples/scripts/reward_modeling.py \
     --model_name_or_path Qwen/Qwen2-0.5B-Instruct \
     --dataset_name trl-lib/ultrafeedback_binarized \
-    --output_dir Qwen2-0.5B-Reward \
+    --output_dir Qwen2-0.5B-Reward-LoRA \
     --per_device_train_batch_size 8 \
     --num_train_epochs 1 \
-    --gradient_accumulation_steps 1 \
-    --remove_unused_columns False \
     --gradient_checkpointing True \
-    --learning_rate 1.0e-5 \
+    --learning_rate 1.0e-4 \
     --logging_steps 25 \
     --eval_strategy steps \
     --eval_steps 50 \
-    --max_length 2048 /
+    --max_length 2048 \
     --use_peft \
     --lora_r 32 \
     --lora_alpha 16
@@ -51,30 +47,24 @@ python examples/scripts/reward_modeling.py \
 import warnings
 
 import torch
-from accelerate import PartialState
 from datasets import load_dataset
-from tqdm import tqdm
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser
 
 from trl import (
     ModelConfig,
     RewardConfig,
     RewardTrainer,
+    ScriptArguments,
     get_kbit_device_map,
     get_peft_config,
     get_quantization_config,
     setup_chat_format,
 )
-from trl.commands.cli_utils import RewardScriptArguments
-from trl.extras.dataset_formatting import conversations_formatting_function
-
-
-tqdm.pandas()
 
 
 if __name__ == "__main__":
-    parser = HfArgumentParser((RewardScriptArguments, RewardConfig, ModelConfig))
-    args, training_args, model_config = parser.parse_args_into_dataclasses()
+    parser = HfArgumentParser((ScriptArguments, RewardConfig, ModelConfig))
+    script_args, training_args, model_config = parser.parse_args_into_dataclasses()
     training_args.gradient_checkpointing_kwargs = dict(use_reentrant=False)
 
     ################
@@ -90,6 +80,8 @@ if __name__ == "__main__":
         revision=model_config.model_revision,
         device_map=get_kbit_device_map() if quantization_config is not None else None,
         quantization_config=quantization_config,
+        use_cache=False if training_args.gradient_checkpointing else True,
+        torch_dtype=torch_dtype,
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, use_fast=True
@@ -110,58 +102,20 @@ if __name__ == "__main__":
             " Make sure to pass --lora_task_type SEQ_CLS when using this script with PEFT."
         )
 
-    #############################
-    # Load and preprocess dataset
-    #############################
-    dataset = load_dataset(args.dataset_name)
-
-    def preprocess_function(examples):
-        new_examples = {
-            "input_ids_chosen": [],
-            "attention_mask_chosen": [],
-            "input_ids_rejected": [],
-            "attention_mask_rejected": [],
-        }
-        for chosen, rejected in zip(examples["chosen"], examples["rejected"]):
-            tokenized_chosen = tokenizer(chosen)
-            tokenized_rejected = tokenizer(rejected)
-            new_examples["input_ids_chosen"].append(tokenized_chosen["input_ids"])
-            new_examples["attention_mask_chosen"].append(tokenized_chosen["attention_mask"])
-            new_examples["input_ids_rejected"].append(tokenized_rejected["input_ids"])
-            new_examples["attention_mask_rejected"].append(tokenized_rejected["attention_mask"])
-
-        return new_examples
-
-    with PartialState().local_main_process_first():
-        # Wrap inputs with chat template.
-        # This assumes the chosen/rejected columns are in the OpenAI messages format.
-        chosen_fn = conversations_formatting_function(tokenizer, "chosen")
-        rejected_fn = conversations_formatting_function(tokenizer, "rejected")
-        dataset = dataset.map(
-            lambda x: {"chosen": chosen_fn(x), "rejected": rejected_fn(x)}, num_proc=training_args.dataset_num_proc
-        )
-        # Tokenize inputs
-        dataset = dataset.map(
-            preprocess_function,
-            batched=True,
-            num_proc=training_args.dataset_num_proc,
-        )
-        # Filter out examples that are too long
-        dataset = dataset.filter(
-            lambda x: len(x["input_ids_chosen"]) <= training_args.max_length
-            and len(x["input_ids_rejected"]) <= training_args.max_length,
-            num_proc=training_args.dataset_num_proc,
-        )
+    ##############
+    # Load dataset
+    ##############
+    dataset = load_dataset(script_args.dataset_name)
 
     ##########
     # Training
     ##########
     trainer = RewardTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=training_args,
-        train_dataset=dataset[args.dataset_train_split],
-        eval_dataset=dataset[args.dataset_test_split],
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
         peft_config=get_peft_config(model_config),
     )
     trainer.train()
@@ -170,8 +124,13 @@ if __name__ == "__main__":
     # Save model and push to Hub
     ############################
     trainer.save_model(training_args.output_dir)
-    metrics = trainer.evaluate()
-    trainer.log_metrics("eval", metrics)
-    trainer.save_metrics("eval", metrics)
+
+    if training_args.eval_strategy != "no":
+        metrics = trainer.evaluate()
+        trainer.log_metrics("eval", metrics)
+        trainer.save_metrics("eval", metrics)
+
+    # Save and push to hub
     trainer.save_model(training_args.output_dir)
-    trainer.push_to_hub()
+    if training_args.push_to_hub:
+        trainer.push_to_hub(dataset_name=script_args.dataset_name)

@@ -1,4 +1,3 @@
-# flake8: noqa
 # Copyright 2023 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-accelerate launch examples/scripts/dpo_visual.py \
+accelerate launch examples/scripts/dpo_vlm.py \
     --dataset_name HuggingFaceH4/rlaif-v_formatted \
     --model_name_or_path HuggingFaceM4/idefics2-8b \
     --per_device_train_batch_size 2 \
@@ -27,9 +26,6 @@ accelerate launch examples/scripts/dpo_visual.py \
     --lora_target_modules=all-linear
 """
 
-from trl.commands.cli_utils import DPOScriptArguments, TrlParser
-from accelerate import PartialState
-
 import torch
 from datasets import load_dataset
 from transformers import AutoModelForVision2Seq, AutoProcessor
@@ -38,6 +34,8 @@ from trl import (
     DPOConfig,
     DPOTrainer,
     ModelConfig,
+    ScriptArguments,
+    TrlParser,
     get_kbit_device_map,
     get_peft_config,
     get_quantization_config,
@@ -45,8 +43,8 @@ from trl import (
 
 
 if __name__ == "__main__":
-    parser = TrlParser((DPOScriptArguments, DPOConfig, ModelConfig))
-    args, training_args, model_config = parser.parse_args_and_config()
+    parser = TrlParser((ScriptArguments, DPOConfig, ModelConfig))
+    script_args, training_args, model_config = parser.parse_args_and_config()
 
     ################
     # Model & Tokenizer
@@ -96,7 +94,7 @@ if __name__ == "__main__":
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    if args.ignore_bias_buffers:
+    if script_args.ignore_bias_buffers:
         # torch distributed hack
         model._ddp_params_and_buffers_to_ignore = [
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
@@ -105,18 +103,7 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    dataset = load_dataset(args.dataset_name)
-
-    def process(row):
-        row["prompt"] = processor.apply_chat_template(row["prompt"], tokenize=False)
-        row["chosen"] = processor.apply_chat_template(row["chosen"], tokenize=False)
-        row["rejected"] = processor.apply_chat_template(row["rejected"], tokenize=False)
-        return row
-
-    # Compute that only on the main process for faster data processing.
-    # see: https://github.com/huggingface/trl/pull/1255
-    with PartialState().local_main_process_first():
-        dataset = dataset.map(process, num_proc=training_args.dataset_num_proc)
+    dataset = load_dataset(script_args.dataset_name)
 
     ################
     # Training
@@ -125,11 +112,15 @@ if __name__ == "__main__":
         model,
         ref_model,
         args=training_args,
-        train_dataset=dataset[args.dataset_train_split],
-        eval_dataset=dataset[args.dataset_test_split],
-        tokenizer=processor,
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        processing_class=processor,
         peft_config=peft_config,
     )
 
     trainer.train()
+
+    # Save and push to hub
     trainer.save_model(training_args.output_dir)
+    if training_args.push_to_hub:
+        trainer.push_to_hub(dataset_name=script_args.dataset_name)

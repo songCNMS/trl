@@ -68,7 +68,7 @@ from accelerate import PartialState
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
 
-from trl import CPOConfig, CPOTrainer, ModelConfig, get_peft_config
+from trl import CPOConfig, CPOTrainer, ModelConfig, ScriptArguments, get_peft_config
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
 from gpt_api_config import *
@@ -85,7 +85,7 @@ class ScriptArguments:
 if __name__ == "__main__":
     
     parser = HfArgumentParser((ScriptArguments, CPOConfig, ModelConfig))
-    args, training_args, model_config = parser.parse_args_into_dataclasses()
+    script_args, training_args, model_config = parser.parse_args_into_dataclasses()
 
     # output_dir_loc = "./"
     output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
@@ -145,9 +145,9 @@ if __name__ == "__main__":
     trainer = CPOTrainer(
         model,
         args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
-        tokenizer=tokenizer,
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        processing_class=tokenizer,
         peft_config=get_peft_config(model_config),
     )
 

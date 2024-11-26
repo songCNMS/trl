@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
-from typing import List, Literal, Optional, Union
+from dataclasses import dataclass, field
+from typing import List, Literal, Optional
 
 from transformers import TrainingArguments
 
@@ -32,7 +32,9 @@ class OnlineDPOConfig(TrainingArguments):
             Initial learning rate for [`AdamW`] optimizer. The default value replaces that of
             [`~transformers.TrainingArguments`].
         reward_model_path (`Optional[str]`, *optional*, defaults to `None`):
-            Path to the reward model.
+            Path to the reward model. Either `judge` or `reward_model_path` must be set, but not both.
+        judge (`Optional[str]`, *optional*, defaults to `None`):
+            Name of the judge to use. Either `judge` or `reward_model_path` must be set, but not both.
         max_new_tokens (`int`, *optional*, defaults to `64`):
             Maximum number of tokens to generate per completion.
         temperature (`float`, *optional*, defaults to `0.9`):
@@ -60,10 +62,16 @@ class OnlineDPOConfig(TrainingArguments):
 
     learning_rate: float = 5e-7
     reward_model_path: Optional[str] = None
+    judge: Optional[str] = None
     max_new_tokens: int = 64
     temperature: float = 0.9
     missing_eos_penalty: Optional[float] = None
-    beta: Union[float, List[float]] = 0.1
+    beta: List[float] = field(default_factory=lambda: [0.1])
     loss_type: Literal["sigmoid", "ipo"] = "sigmoid"
     dataset_num_proc: Optional[int] = None
     disable_dropout: bool = True
+
+    def __post_init__(self):
+        super().__post_init__()
+        if hasattr(self.beta, "__len__") and len(self.beta) == 1:
+            self.beta = self.beta[0]

@@ -1,5 +1,3 @@
-# flake8: noqa
-
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,23 +48,29 @@ accelerate launch --config_file examples/accelerate_configs/deepspeed_zero2.yaml
 import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig
+
 from trl import (
-    DPOScriptArguments,
+    HfPairwiseJudge,
+    LogCompletionsCallback,
     ModelConfig,
     NashMDConfig,
     NashMDTrainer,
+    OpenAIPairwiseJudge,
+    PairRMJudge,
+    ScriptArguments,
+    TrlParser,
     get_kbit_device_map,
     get_quantization_config,
-    LogCompletionsCallback,
 )
-from trl.commands.cli_utils import TrlParser
-from trl.trainer.utils import SIMPLE_QUERY_CHAT_TEMPLATE
+from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
+
+JUDGES = {"pair_rm": PairRMJudge, "openai": OpenAIPairwiseJudge, "hf": HfPairwiseJudge}
 
 if __name__ == "__main__":
-    parser = TrlParser((DPOScriptArguments, NashMDConfig, ModelConfig))
-    args, training_args, model_config = parser.parse_args_and_config()
-    args.gradient_checkpointing_kwargs = {"use_reentrant": True}
+    parser = TrlParser((ScriptArguments, NashMDConfig, ModelConfig))
+    script_args, training_args, model_config = parser.parse_args_and_config()
+    training_args.gradient_checkpointing_kwargs = {"use_reentrant": True}
 
     torch_dtype = (
         model_config.torch_dtype
@@ -89,9 +93,23 @@ if __name__ == "__main__":
     ref_model = AutoModelForCausalLM.from_pretrained(
         model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
     )
-    reward_model = AutoModelForSequenceClassification.from_pretrained(
-        training_args.reward_model_path, num_labels=1, trust_remote_code=model_config.trust_remote_code
-    )
+
+    if training_args.reward_model_path is not None:
+        reward_model = AutoModelForSequenceClassification.from_pretrained(
+            training_args.reward_model_path,
+            num_labels=1,
+            trust_remote_code=model_config.trust_remote_code,
+            **model_kwargs,
+        )
+    else:
+        reward_model = None
+
+    if training_args.judge is not None:
+        judge_cls = JUDGES[training_args.judge]
+        judge = judge_cls()
+    else:
+        judge = None
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_config.model_name_or_path,
         padding_side="left",
@@ -100,26 +118,31 @@ if __name__ == "__main__":
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     if tokenizer.chat_template is None:
-        tokenizer.chat_template = SIMPLE_QUERY_CHAT_TEMPLATE
+        tokenizer.chat_template = SIMPLE_CHAT_TEMPLATE
 
-    dataset = load_dataset(args.dataset_name)
+    dataset = load_dataset(script_args.dataset_name)
 
     trainer = NashMDTrainer(
         model=model,
         ref_model=ref_model,
         reward_model=reward_model,
+        judge=judge,
         args=training_args,
-        train_dataset=dataset[args.dataset_train_split],
-        eval_dataset=dataset[args.dataset_test_split],
-        tokenizer=tokenizer,
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        processing_class=tokenizer,
     )
-    generation_config = GenerationConfig(
-        max_new_tokens=training_args.max_new_tokens, do_sample=True, temperature=training_args.temperature
-    )
-    completions_callback = LogCompletionsCallback(trainer, generation_config, num_prompts=8)
-    trainer.add_callback(completions_callback)
-    # train the model
+
+    if training_args.eval_strategy != "no":
+        generation_config = GenerationConfig(
+            max_new_tokens=training_args.max_new_tokens, do_sample=True, temperature=training_args.temperature
+        )
+        completions_callback = LogCompletionsCallback(trainer, generation_config, num_prompts=8)
+        trainer.add_callback(completions_callback)
+
     trainer.train()
 
-    # save the model
+    # Save and push to hub
     trainer.save_model(training_args.output_dir)
+    if training_args.push_to_hub:
+        trainer.push_to_hub(dataset_name=script_args.dataset_name)

@@ -25,54 +25,55 @@ from transformers.testing_utils import require_peft
 from trl import BCOConfig, BCOTrainer
 from trl.trainer.bco_trainer import _process_tokens, _tokenize
 
-from .testing_utils import require_no_wandb
+from .testing_utils import require_no_wandb, require_sklearn
 
 
 class BCOTrainerTester(unittest.TestCase):
     def setUp(self):
-        self.model_id = "trl-internal-testing/dummy-GPT2-correct-vocab"
+        self.model_id = "trl-internal-testing/tiny-Qwen2ForCausalLM-2.5"
         self.model = AutoModelForCausalLM.from_pretrained(self.model_id)
         self.ref_model = AutoModelForCausalLM.from_pretrained(self.model_id)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         # get t5 as seq2seq example:
-        model_id = "trl-internal-testing/tiny-T5ForConditionalGeneration-correct-vocab"
+        model_id = "trl-internal-testing/tiny-T5ForConditionalGeneration"
         self.t5_model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
         self.t5_ref_model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
         self.t5_tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         # get embedding model
-        model_id = "facebook/bart-base"
+        model_id = "trl-internal-testing/tiny-BartModel"
         self.embedding_model = AutoModel.from_pretrained(model_id)
         self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_id)
 
     @parameterized.expand(
         [
-            ["gpt2", True, True],
-            ["gpt2", True, False],
-            ["gpt2", False, True],
-            ["gpt2", False, False],
+            ("qwen", True, True, "standard_unpaired_preference"),
+            ("qwen", True, False, "standard_unpaired_preference"),
+            ("qwen", False, True, "standard_unpaired_preference"),
+            ("qwen", False, False, "standard_unpaired_preference"),
+            ("qwen", True, True, "conversational_unpaired_preference"),
         ]
     )
-    def test_bco_trainer(self, name, pre_compute, eval_dataset):
+    @require_sklearn
+    def test_bco_trainer(self, name, pre_compute, eval_dataset, config_name):
         with tempfile.TemporaryDirectory() as tmp_dir:
             training_args = BCOConfig(
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=1,
                 learning_rate=9e-1,
-                eval_strategy="steps",
+                eval_strategy="steps" if eval_dataset else "no",
                 beta=0.1,
                 precompute_ref_log_probs=pre_compute,
                 report_to="none",
             )
 
-            dummy_dataset = load_dataset("trl-internal-testing/zen", "standard_unpaired_preference")
+            dummy_dataset = load_dataset("trl-internal-testing/zen", config_name)
 
-            if name == "gpt2":
+            if name == "qwen":
                 model = self.model
                 ref_model = self.ref_model
                 tokenizer = self.tokenizer
@@ -85,7 +86,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=model,
                 ref_model=ref_model,
                 args=training_args,
-                tokenizer=tokenizer,
+                processing_class=tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"] if eval_dataset else None,
             )
@@ -103,6 +104,7 @@ class BCOTrainerTester(unittest.TestCase):
                 if param.sum() != 0:
                     self.assertFalse(torch.equal(param.cpu(), new_param.cpu()))
 
+    @require_sklearn
     def test_bco_trainer_with_ref_model_is_model(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             training_args = BCOConfig(
@@ -119,17 +121,17 @@ class BCOTrainerTester(unittest.TestCase):
                     model=self.model,
                     ref_model=self.model,  # ref_model can't be the same as model
                     args=training_args,
-                    tokenizer=self.tokenizer,
+                    processing_class=self.tokenizer,
                     train_dataset=dummy_dataset["train"],
                 )
 
+    @require_sklearn
     def test_tokenize_and_process_tokens(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             training_args = BCOConfig(
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=1,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -143,7 +145,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=self.model,
                 ref_model=self.ref_model,
                 args=training_args,
-                tokenizer=self.tokenizer,
+                processing_class=self.tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"],
             )
@@ -158,9 +160,9 @@ class BCOTrainerTester(unittest.TestCase):
             self.assertListEqual(tokenized_dataset["prompt"], train_dataset["prompt"])
             self.assertListEqual(tokenized_dataset["completion"], train_dataset["completion"])
             self.assertListEqual(tokenized_dataset["label"], train_dataset["label"])
-            self.assertListEqual(tokenized_dataset["prompt_input_ids"][0], [5377, 11141])
-            self.assertListEqual(tokenized_dataset["prompt_attention_mask"][0], [1, 1])
-            self.assertListEqual(tokenized_dataset["answer_input_ids"][0], [318, 1365, 621, 8253, 13])
+            self.assertListEqual(tokenized_dataset["prompt_input_ids"][0], [31137])
+            self.assertListEqual(tokenized_dataset["prompt_attention_mask"][0], [1])
+            self.assertListEqual(tokenized_dataset["answer_input_ids"][0], [374, 2664, 1091, 16965, 13])
             self.assertListEqual(tokenized_dataset["answer_attention_mask"][0], [1, 1, 1, 1, 1])
 
             fn_kwargs = {
@@ -176,23 +178,21 @@ class BCOTrainerTester(unittest.TestCase):
             self.assertListEqual(processed_dataset["prompt"], train_dataset["prompt"])
             self.assertListEqual(processed_dataset["completion"], train_dataset["completion"])
             self.assertListEqual(processed_dataset["label"], train_dataset["label"])
-            self.assertListEqual(processed_dataset["prompt_input_ids"][0], [50256, 5377, 11141])
-            self.assertListEqual(processed_dataset["prompt_attention_mask"][0], [1, 1, 1])
+            self.assertListEqual(processed_dataset["prompt_input_ids"][0], [31137])
+            self.assertListEqual(processed_dataset["prompt_attention_mask"][0], [1])
             self.assertListEqual(
-                processed_dataset["completion_input_ids"][0], [50256, 5377, 11141, 318, 1365, 621, 8253, 13, 50256]
+                processed_dataset["completion_input_ids"][0], [31137, 374, 2664, 1091, 16965, 13, 151645]
             )
-            self.assertListEqual(processed_dataset["completion_attention_mask"][0], [1, 1, 1, 1, 1, 1, 1, 1, 1])
-            self.assertListEqual(
-                processed_dataset["completion_labels"][0], [-100, -100, -100, 318, 1365, 621, 8253, 13, 50256]
-            )
+            self.assertListEqual(processed_dataset["completion_attention_mask"][0], [1, 1, 1, 1, 1, 1, 1])
+            self.assertListEqual(processed_dataset["completion_labels"][0], [-100, 374, 2664, 1091, 16965, 13, 151645])
 
+    @require_sklearn
     def test_bco_trainer_without_providing_ref_model(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             training_args = BCOConfig(
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=4,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -206,7 +206,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=self.model,
                 ref_model=None,
                 args=training_args,
-                tokenizer=self.tokenizer,
+                processing_class=self.tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"],
             )
@@ -224,13 +224,13 @@ class BCOTrainerTester(unittest.TestCase):
                 if param.sum() != 0:
                     self.assertFalse(torch.equal(param.cpu(), new_param.cpu()))
 
+    @require_sklearn
     def test_bco_trainer_udm(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             training_args = BCOConfig(
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=4,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -252,7 +252,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=self.model,
                 ref_model=None,
                 args=training_args,
-                tokenizer=self.tokenizer,
+                processing_class=self.tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"],
                 embedding_func=embedding_func,
@@ -272,6 +272,7 @@ class BCOTrainerTester(unittest.TestCase):
                 if param.sum() != 0:
                     self.assertFalse(torch.equal(param.cpu(), new_param.cpu()))
 
+    @require_sklearn
     @require_peft
     def test_bco_trainer_without_providing_ref_model_with_lora(self):
         from peft import LoraConfig
@@ -289,7 +290,6 @@ class BCOTrainerTester(unittest.TestCase):
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=4,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -303,7 +303,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=self.model,
                 ref_model=None,
                 args=training_args,
-                tokenizer=self.tokenizer,
+                processing_class=self.tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"],
                 peft_config=lora_config,
@@ -323,6 +323,7 @@ class BCOTrainerTester(unittest.TestCase):
                     if param.sum() != 0:
                         self.assertFalse(torch.equal(param.cpu(), new_param.cpu()))
 
+    @require_sklearn
     @require_no_wandb
     def test_bco_trainer_generate_during_eval_no_wandb(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -330,7 +331,6 @@ class BCOTrainerTester(unittest.TestCase):
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=1,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -350,11 +350,12 @@ class BCOTrainerTester(unittest.TestCase):
                     model=self.model,
                     ref_model=None,
                     args=training_args,
-                    tokenizer=self.tokenizer,
+                    processing_class=self.tokenizer,
                     train_dataset=dummy_dataset["train"],
                     eval_dataset=dummy_dataset["test"],
                 )
 
+    @require_sklearn
     @require_peft
     def test_bco_lora_save(self):
         from peft import LoraConfig, get_peft_model
@@ -376,7 +377,6 @@ class BCOTrainerTester(unittest.TestCase):
                 output_dir=tmp_dir,
                 per_device_train_batch_size=2,
                 max_steps=3,
-                remove_unused_columns=False,
                 gradient_accumulation_steps=4,
                 learning_rate=9e-1,
                 eval_strategy="steps",
@@ -391,7 +391,7 @@ class BCOTrainerTester(unittest.TestCase):
                 model=model_peft,
                 ref_model=None,
                 args=training_args,
-                tokenizer=self.tokenizer,
+                processing_class=self.tokenizer,
                 train_dataset=dummy_dataset["train"],
                 eval_dataset=dummy_dataset["test"],
                 peft_config=lora_config,

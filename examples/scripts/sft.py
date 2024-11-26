@@ -1,4 +1,3 @@
-# flake8: noqa
 # Copyright 2023 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-# regular:
+# Full training
 python examples/scripts/sft.py \
     --model_name_or_path="facebook/opt-350m" \
     --dataset_text_field="text" \
@@ -42,6 +41,9 @@ python examples/scripts/sft.py \
     --num_train_epochs=100 \
     --max_steps=-1 \
     --gradient_checkpointing \
+    --logging_steps 25 \
+    --eval_strategy steps \
+    --eval_steps 100 \
     --use_peft \
     --lora_r=64 \
     --lora_alpha=16 
@@ -64,8 +66,11 @@ from transformers import AutoTokenizer
 
 from trl import (
     ModelConfig,
+    ScriptArguments,
     SFTConfig,
     SFTTrainer,
+    TrlParser,
+    get_kbit_device_map,
     get_peft_config,
     get_quantization_config,
     get_kbit_device_map,

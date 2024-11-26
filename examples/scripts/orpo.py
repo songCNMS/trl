@@ -17,6 +17,7 @@ In general, the optimal configuration for ORPO will be similar to that of DPO wi
 
 # regular:
 python examples/scripts/orpo.py \
+    --dataset_name trl-internal-testing/hh-rlhf-helpful-base-trl-style \
     --model_name_or_path=gpt2 \
     --per_device_train_batch_size 4 \
     --max_steps 1000 \
@@ -33,6 +34,7 @@ python examples/scripts/orpo.py \
 
 # peft:
 python examples/scripts/orpo.py \
+    --dataset_name trl-internal-testing/hh-rlhf-helpful-base-trl-style \
     --model_name_or_path=gpt2 \
     --per_device_train_batch_size 4 \
     --max_steps 1000 \
@@ -52,27 +54,16 @@ python examples/scripts/orpo.py \
     --lora_alpha=16
 """
 
-from dataclasses import dataclass, field
-
-from accelerate import PartialState
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
 
-from trl import ModelConfig, ORPOConfig, ORPOTrainer, get_peft_config
+from trl import ModelConfig, ORPOConfig, ORPOTrainer, ScriptArguments, get_peft_config
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
-
-
-@dataclass
-class ScriptArguments:
-    dataset_name: str = field(
-        default="trl-internal-testing/hh-rlhf-helpful-base-trl-style",
-        metadata={"help": "The name of the dataset to use."},
-    )
 
 
 if __name__ == "__main__":
     parser = HfArgumentParser((ScriptArguments, ORPOConfig, ModelConfig))
-    args, training_args, model_config = parser.parse_args_into_dataclasses()
+    script_args, training_args, model_config = parser.parse_args_into_dataclasses()
 
     ################
     # Model & Tokenizer
@@ -89,20 +80,9 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    dataset = load_dataset(args.dataset_name)
+    dataset = load_dataset(script_args.dataset_name)
     if tokenizer.chat_template is None:
         tokenizer.chat_template = SIMPLE_CHAT_TEMPLATE
-
-    def process(row):
-        row["prompt"] = tokenizer.apply_chat_template(row["chosen"][:-1], tokenize=False)
-        row["chosen"] = tokenizer.apply_chat_template([row["chosen"][-1]], tokenize=False)
-        row["rejected"] = tokenizer.apply_chat_template([row["rejected"][-1]], tokenize=False)
-        return row
-
-    # Compute that only on the main process for faster data processing.
-    # see: https://github.com/huggingface/trl/pull/1255
-    with PartialState().local_main_process_first():
-        dataset = dataset.map(process, num_proc=training_args.dataset_num_proc)
 
     ################
     # Training
@@ -110,12 +90,16 @@ if __name__ == "__main__":
     trainer = ORPOTrainer(
         model,
         args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
-        tokenizer=tokenizer,
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        processing_class=tokenizer,
         peft_config=get_peft_config(model_config),
     )
 
     # train and save the model
     trainer.train()
+
+    # Save and push to hub
     trainer.save_model(training_args.output_dir)
+    if training_args.push_to_hub:
+        trainer.push_to_hub(dataset_name=script_args.dataset_name)
