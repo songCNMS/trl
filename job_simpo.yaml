@@ -2,17 +2,18 @@ description: Task Decomposition
 
   
 environment:
-  image: lesong/nvidia-cuda:v5
+  image: lesong/nvidia-cuda:v6
   username: f2e15e898c154795b7a8c9a9d936095d
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
     - apt-get update -y
     - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
-    - export PATH=/home/aiscuser/.local/bin:$$PATH
+    - export PATH=$$HOME/.local/bin:$$PATH
     - export PYTHONPATH=$$PWD:$$PYTHONPATH
     - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
     - pip install azureml-mlflow tensorboard --user
     - pip install -r requirements.txt
+    - pip install deepspeed
 
     
 target:
@@ -46,12 +47,14 @@ search:
     sku: 40G4
     sla_tier: Premium
     command:
-    - accelerate launch --config-file ./accelerate_configs/deepspeed_zero3.yaml examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-14B-Instruct --beta {beta} --per_device_train_batch_size 1 --max_steps 50000 --learning_rate 8e-5 --gradient_accumulation_steps 1 --logging_steps 1000 --eval_steps 1000000 --save_steps 10000 --output_dir="logs/qwen-14b-lora-aligned-cpo-alpha{lora_alpha}-cpo-alpha{cpo_alpha}-beta{beta}-gamma{simpo_gamma}" --optim rmsprop --warmup_steps 150 --report_to wandb --logging_first_step --no_remove_unused_columns --use_peft --lora_r=16 --bf16 --lora_alpha={lora_alpha} --max_prompt_length=3072 --max_completion_length=1024 --max_length=4096 --loss_type={loss_type} --cpo_alpha={cpo_alpha} --simpo_gamma {simpo_gamma}
+    - accelerate launch --config-file ./accelerate_configs/deepspeed_zero3.yaml examples/scripts/cpo.py --model_name_or_path=Qwen/Qwen2.5-{model}-Instruct --beta {beta} --per_device_train_batch_size 1 --max_steps 50000 --learning_rate 8e-5 --gradient_accumulation_steps 1 --logging_steps 1000 --eval_steps 1000000 --save_steps 10000 --output_dir="logs/qwen-{model}-lora-aligned-cpo-alpha{lora_alpha}-cpo-alpha{cpo_alpha}-beta{beta}-gamma{simpo_gamma}" --optim rmsprop --warmup_steps 150 --report_to wandb --logging_first_step --no_remove_unused_columns --use_peft --lora_r=16 --bf16 --lora_alpha={lora_alpha} --max_prompt_length=3072 --max_completion_length=1024 --max_length=4096 --loss_type={loss_type} --cpo_alpha={cpo_alpha} --simpo_gamma {simpo_gamma}
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
   max_trials: 108
   parallel_trials: 2  # number of trials to run in parallel. Default: equals to max_trials.
   params:
+    - name: model
+      values: ["14B"]
     - name: lora_alpha
       values: [8, 16, 32, 64]  # or equivalently choice(0.5, 0.9, 0.99)
     - name: loss_type
