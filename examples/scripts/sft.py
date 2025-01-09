@@ -131,14 +131,19 @@ if __name__ == "__main__":
     
     response_template = "Please give your answer:"
     collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
+    if model_config.model_name_or_path.find("microsoft") >= 0:
+        model_config.lora_target_modules = ["qkv_proj", "o_proj"]
+    peft_config=get_peft_config(model_config)
     
+    # peft_config["target_modules"] = "all_linear"
+    print(peft_config)
     trainer = SFTTrainer(
         model=model_config.model_name_or_path,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
         tokenizer=tokenizer,
-        peft_config=get_peft_config(model_config),
+        peft_config=peft_config,
         formatting_func=formatting_func,
         data_collator=collator
     )
