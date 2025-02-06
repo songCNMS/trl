@@ -65,7 +65,7 @@ from trl import (
     SFTTrainer,
     get_kbit_device_map,
 )
-from trl.commands.cli_utils import SFTScriptArguments, TrlParser
+from trl_bak.commands.cli_utils import SFTScriptArguments, TrlParser
 from trl.trainer import ModelConfig
 
 

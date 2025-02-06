@@ -10,6 +10,6 @@ numpy>=1.20.3
 markupsafe==2.0.1
 azure-identity
 azure-keyvault
-trl
+trl==0.12.1
 tokenizers
 jinja2>=3.0
