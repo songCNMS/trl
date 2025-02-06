@@ -7,3 +7,5 @@ logs
 docker
 tests
 models
+runs
+trl_bak

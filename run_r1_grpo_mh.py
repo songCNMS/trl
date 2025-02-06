@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 import os
+
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 import random
-import re 
+import re
 import torch
 from transformers.trainer_utils import get_last_checkpoint
 from transformers import AutoTokenizer
@@ -41,7 +42,6 @@ logger.addHandler(handler)
 ########################
 
 
-
 def normalize_text(s):
     """Removing articles and punctuation, and standardizing whitespace are all typical text processing steps."""
     import string, re
@@ -66,66 +66,86 @@ def normalize_text(s):
 def compute_f1(prediction, truth):
     pred_tokens = normalize_text(prediction).split()
     truth_tokens = normalize_text(truth).split()
-    
+
     # if either the prediction or the truth is no-answer then f1 = 1 if they agree, 0 otherwise
     if len(pred_tokens) == 0 or len(truth_tokens) == 0:
         return int(pred_tokens == truth_tokens)
-    
+
     common_tokens = set(pred_tokens) & set(truth_tokens)
-    
+
     # if there are no common tokens then f1 = 0
     if len(common_tokens) == 0:
         return 0
-    
+
     prec = len(common_tokens) / len(pred_tokens)
     rec = len(common_tokens) / len(truth_tokens)
-    
+
     return 2 * (prec * rec) / (prec + rec)
 
 
 def format_reward_func(completions, target, **kwargs):
     rewards = []
     for completion, gt in zip(completions, target):
+        try:
+            # add synthetic <think> as its already part of the prompt and prefilled for the assistant to more easily match the regex
+            # completion = "<think>" + completion
+            if random.random() < 0.1:  # 1% chance to write samples into a file
+                os.makedirs("logs/completion_samples", exist_ok=True)
+                log_file = os.path.join(
+                    "logs/completion_samples", "completion_samples.txt"
+                )
+                with open(log_file, "a") as f:
+                    f.write(f"\n\n==============\n")
+                    f.write(completion)
 
-      try:
-        # add synthetic <think> as its already part of the prompt and prefilled for the assistant to more easily match the regex
-        # completion = "<think>" + completion
-        if random.random() < 0.1:  # 1% chance to write samples into a file
-          os.makedirs("logs/completion_samples", exist_ok=True)
-          log_file = os.path.join("logs/completion_samples", "completion_samples.txt")
-          with open(log_file, "a") as f:
-            f.write(f"\n\n==============\n")
-            f.write(completion)
-        
-        if completion.strip().lower() == "<decomposition>false</decomposition>":
-            rewards.append(1.0)
-        elif completion.strip().lower().startswith("<decomposition>true</decomposition>"):
-            sub_completion = completion.strip().lower().replace("<decomposition>true</decomposition>", "").strip()
-            if sub_completion.startswith("<sub question>") and sub_completion.endswith("</sub question>"):
+            if completion.strip().lower() == "<decomposition>false</decomposition>":
                 rewards.append(1.0)
-        else:
+            elif (
+                completion.strip()
+                .lower()
+                .startswith("<decomposition>true</decomposition>")
+            ):
+                sub_completion = (
+                    completion.strip()
+                    .lower()
+                    .replace("<decomposition>true</decomposition>", "")
+                    .strip()
+                )
+                if sub_completion.startswith(
+                    "<sub question>"
+                ) and sub_completion.endswith("</sub question>"):
+                    rewards.append(1.0)
+                else:
+                    rewards.append(0.1)
+            else:
+                rewards.append(0.0)
+        except Exception as ex:
+            print("ex: ", ex)
             rewards.append(0.0)
-      except Exception:
-        rewards.append(0.0)
     return rewards
+
 
 def equation_reward_func(completions, target, **kwargs):
     rewards = []
     for completion, gt in zip(completions, target):
-      try:
-        f1 = compute_f1(gt, completion)
-        rewards.append(f1)
-        if abs(f1) > 0.8:
-            if random.random() < 0.10:  # 10% chance to write fully successful samples into a file
-                os.makedirs("logs/completion_samples", exist_ok=True)
-                log_file = os.path.join("logs/completion_samples", "success_completion_samples.txt")
-                with open(log_file, "a") as f:
-                    f.write(f"\n\n==============\n")
-                    f.write(completion)
-      except Exception:
-            rewards.append(0.0) 
+        try:
+            f1 = compute_f1(gt, completion)
+            rewards.append(f1)
+            if abs(f1) > 0.8:
+                if (
+                    random.random() < 0.10
+                ):  # 10% chance to write fully successful samples into a file
+                    os.makedirs("logs/completion_samples", exist_ok=True)
+                    log_file = os.path.join(
+                        "logs/completion_samples", "success_completion_samples.txt"
+                    )
+                    with open(log_file, "a") as f:
+                        f.write(f"\n\n==============\n")
+                        f.write(completion)
+        except Exception as ex:
+            print("ex: ", ex)
+            rewards.append(0.0)
     return rewards
-
 
 
 def get_checkpoint(training_args: GRPOConfig):
@@ -158,22 +178,22 @@ def grpo_function(
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-        
-    def generate_r1_prompt(prompt, target):
-        r1_prefix = [{
-            "role": "system",
-            "content": "You are a helpful assistant. You first thinks about the reasoning process in the mind and then provides the user with the answer."
-        },
-        { 
-            "role": "user",
-            "content": prompt
-        },
-        {
-            "role": "assistant",
-            "content": f"Answer: {target}"
-        }]
-        return {"prompt": tokenizer.apply_chat_template(r1_prefix, tokenize=False, continue_final_message=True), "target": target}
 
+    def generate_r1_prompt(prompt, target):
+        r1_prefix = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. ",
+            },
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": f"Answer: {target}"},
+        ]
+        return {
+            "prompt": tokenizer.apply_chat_template(
+                r1_prefix, tokenize=False, continue_final_message=True
+            ),
+            "target": target,
+        }
 
     ###############
     # Load datasets
@@ -186,8 +206,8 @@ def grpo_function(
     #####################
     # Prepare and format dataset
     #####################
-    data_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./data/"), "grpo_data.json")
-    dataset = load_dataset('json', data_files=data_loc)["train"]
+    data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "./data/"), "grpo_data.json")
+    dataset = load_dataset("json", data_files=data_loc)["train"]
     # convert our dataset to the r1 prompt
     dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"]))
 
@@ -202,14 +222,13 @@ def grpo_function(
     #########################
 
     trainer = GRPOTrainer(
-      model=model_args.model_name_or_path,
-      reward_funcs=[format_reward_func, equation_reward_func],
-      args=training_args,
-      train_dataset=train_dataset,
-      eval_dataset=test_dataset,
-      peft_config=get_peft_config(model_args),
+        model=model_args.model_name_or_path,
+        reward_funcs=[format_reward_func, equation_reward_func],
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        peft_config=get_peft_config(model_args),
     )
-
 
     ###############
     # Training loop
@@ -237,6 +256,7 @@ def grpo_function(
     # Save model and create model card
     ##################################
 
+    training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "./models/"), training_args.output_dir)
     logger.info("*** Save model ***")
     trainer.model.config.use_cache = True
     trainer.save_model(training_args.output_dir)
@@ -248,7 +268,7 @@ def grpo_function(
 
     # Save everything else on main process
     if trainer.accelerator.is_main_process:
-        trainer.create_model_card({"tags": ["rl","grpo", "tutorial", "philschmid"]})
+        trainer.create_model_card({"tags": ["rl", "grpo", "tutorial", "philschmid"]})
     # push to hub if needed
     if training_args.push_to_hub is True:
         logger.info("Pushing to hub...")
