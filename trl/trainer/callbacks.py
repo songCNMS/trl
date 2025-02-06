@@ -1,4 +1,4 @@
-# Copyright 2022 The HuggingFace Team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
 from typing import List, Optional, Union
 
@@ -18,7 +19,7 @@ import pandas as pd
 import torch
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
-from accelerate.utils import gather_object, is_deepspeed_available
+from accelerate.utils import gather_object, is_comet_ml_available, is_deepspeed_available, is_wandb_available
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
@@ -33,7 +34,6 @@ from transformers import (
     TrainerState,
     TrainingArguments,
 )
-from transformers.integrations import WandbCallback
 from transformers.trainer_utils import has_length
 
 from ..data_utils import maybe_apply_chat_template
@@ -41,25 +41,32 @@ from ..import_utils import is_mergekit_available
 from ..mergekit_utils import MergeConfig, merge_models, upload_model_to_hf
 from ..models.utils import unwrap_model_for_generation
 from .judges import BasePairwiseJudge
+from .utils import log_table_to_comet_experiment
 
 
 if is_deepspeed_available():
     import deepspeed
 
+if is_comet_ml_available():
+    pass
+
+if is_wandb_available():
+    import wandb
+
 
 def _generate_completions(
-    prompts: List[str],
+    prompts: list[str],
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizerBase,
     accelerator: Accelerator,
     generation_config: Optional[GenerationConfig],
     batch_size: int = 1,
-) -> List[str]:
+) -> list[str]:
     """
     Generates completions for a list of pre-formatted prompts from the given model.
 
     Args:
-        prompts (List[str]): A list of input prompts for which completions are to be generated.
+        prompts (list[str]): A list of input prompts for which completions are to be generated.
         model (PreTrainedModel): The pre-trained model to be used for generation.
         tokenizer (PreTrainedTokenizerBase): The tokenizer to be used for encoding and decoding.
         accelerator (Accelerator): The accelerator to be used for model execution.
@@ -67,7 +74,7 @@ def _generate_completions(
         batch_size (int, optional): The number of prompts to process in each batch. Default is 1.
 
     Returns:
-        List[str]: A list of generated text completions corresponding to the input prompts.
+        list[str]: A list of generated text completions corresponding to the input prompts.
     """
     completions = []
     with unwrap_model_for_generation(model, accelerator) as unwrapped_model:
@@ -87,6 +94,10 @@ def _generate_completions(
 
 
 class SyncRefModelCallback(TrainerCallback):
+    """
+    Callback to synchronize the model with a reference model.
+    """
+
     def __init__(
         self,
         ref_model: Union[PreTrainedModel, torch.nn.Module],
@@ -196,6 +207,16 @@ class RichProgressCallback(TrainerCallback):
             self.rich_console = None
             self.training_status = None
             self.current_step = None
+
+
+def _win_rate_completions_df(
+    state: TrainerState, prompts: List[str], completions: List[str], winner_indices: List[str]
+) -> pd.DataFrame:
+    global_step = [str(state.global_step)] * len(prompts)
+    data = list(zip(global_step, prompts, completions, winner_indices))
+    # Split completions from reference model and policy
+    split_data = [(item[0], item[1], item[2][0], item[2][1], item[3]) for item in data]
+    return pd.DataFrame(split_data, columns=["step", "prompt", "reference_model", "policy", "winner_index"])
 
 
 class WinRateCallback(TrainerCallback):
@@ -310,14 +331,25 @@ class WinRateCallback(TrainerCallback):
                 import wandb
 
                 if wandb.run is not None:
-                    global_step = [str(state.global_step)] * len(prompts)
-                    data = list(zip(global_step, prompts, completions, winner_indices))
-                    # Split completions from referenece model and policy
-                    split_data = [(item[0], item[1], item[2][0], item[2][1], item[3]) for item in data]
-                    df = pd.DataFrame(
-                        split_data, columns=["step", "prompt", "reference_model", "policy", "winner_index"]
+                    df = _win_rate_completions_df(
+                        state=state,
+                        prompts=prompts,
+                        completions=completions,
+                        winner_indices=winner_indices,
                     )
                     wandb.log({"win_rate_completions": wandb.Table(dataframe=df)})
+
+            if "comet_ml" in args.report_to:
+                df = _win_rate_completions_df(
+                    state=state,
+                    prompts=prompts,
+                    completions=completions,
+                    winner_indices=winner_indices,
+                )
+                log_table_to_comet_experiment(
+                    name="win_rate_completions.csv",
+                    table=df,
+                )
 
     def on_evaluate(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         # At every evaluation step, we generate completions for the model and compare them with the reference
@@ -362,19 +394,30 @@ class WinRateCallback(TrainerCallback):
                 import wandb
 
                 if wandb.run is not None:
-                    global_step = [str(state.global_step)] * len(prompts)
-                    data = list(zip(global_step, prompts, completions, winner_indices))
-                    # Split completions from referenece model and policy
-                    split_data = [(item[0], item[1], item[2][0], item[2][1], item[3]) for item in data]
-                    df = pd.DataFrame(
-                        split_data, columns=["step", "prompt", "reference_model", "policy", "winner_index"]
+                    df = _win_rate_completions_df(
+                        state=state,
+                        prompts=prompts,
+                        completions=completions,
+                        winner_indices=winner_indices,
                     )
                     wandb.log({"win_rate_completions": wandb.Table(dataframe=df)})
 
+            if "comet_ml" in args.report_to:
+                df = _win_rate_completions_df(
+                    state=state,
+                    prompts=prompts,
+                    completions=completions,
+                    winner_indices=winner_indices,
+                )
+                log_table_to_comet_experiment(
+                    name="win_rate_completions.csv",
+                    table=df,
+                )
 
-class LogCompletionsCallback(WandbCallback):
+
+class LogCompletionsCallback(TrainerCallback):
     r"""
-    A [`~transformers.TrainerCallback`] that logs completions to Weights & Biases.
+    A [`~transformers.TrainerCallback`] that logs completions to Weights & Biases and/or Comet.
 
     Usage:
     ```python
@@ -402,7 +445,6 @@ class LogCompletionsCallback(WandbCallback):
         num_prompts: Optional[int] = None,
         freq: Optional[int] = None,
     ):
-        super().__init__()
         self.trainer = trainer
         self.generation_config = generation_config
         self.freq = freq
@@ -449,8 +491,16 @@ class LogCompletionsCallback(WandbCallback):
             global_step = [str(state.global_step)] * len(prompts)
             data = list(zip(global_step, prompts, completions))
             self.table.extend(data)
-            table = self._wandb.Table(columns=["step", "prompt", "completion"], data=self.table)
-            self._wandb.log({"completions": table})
+            table = pd.DataFrame(columns=["step", "prompt", "completion"], data=self.table)
+
+            if "wandb" in args.report_to:
+                wandb.log({"completions": table})
+
+            if "comet_ml" in args.report_to:
+                log_table_to_comet_experiment(
+                    name="completions.csv",
+                    table=table,
+                )
 
         # Save the last logged step, so we don't log the same completions multiple times
         self._last_logged_step = state.global_step

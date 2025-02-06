@@ -1,4 +1,4 @@
-# Copyright 2024 The HuggingFace Inc. team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,6 @@ class TrainerArgTester(unittest.TestCase):
                 max_length=256,
                 max_prompt_length=64,
                 max_completion_length=64,
-                is_encoder_decoder=True,
                 disable_dropout=False,
                 # generate_during_eval=True, # ignore this one, it requires wandb
                 precompute_ref_log_probs=True,
@@ -188,7 +187,6 @@ class TrainerArgTester(unittest.TestCase):
             self.assertEqual(trainer.args.max_length, 256)
             self.assertEqual(trainer.args.max_prompt_length, 64)
             self.assertEqual(trainer.args.max_completion_length, 64)
-            self.assertEqual(trainer.args.is_encoder_decoder, True)
             self.assertEqual(trainer.args.disable_dropout, False)
             # self.assertEqual(trainer.args.generate_during_eval, True)
             self.assertEqual(trainer.args.precompute_ref_log_probs, True)

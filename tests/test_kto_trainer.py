@@ -1,4 +1,4 @@
-# Copyright 2024 The HuggingFace Team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import tempfile
 import unittest
 
@@ -94,11 +95,10 @@ class KTOTrainerTester(unittest.TestCase):
 
             self.assertIsNotNone(trainer.state.log_history[-1]["train_loss"])
 
-            # check the params have changed
+            # Check that the parameters have changed
             for n, param in previous_trainable_params.items():
                 new_param = trainer.model.get_parameter(n)
-                # check the params have changed - ignore 0 biases
-                if param.sum() != 0:
+                if param.sum() != 0:  # ignore 0 biases
                     self.assertFalse(torch.equal(param, new_param))
 
     def test_kto_trainer_with_ref_model_is_model(self):
@@ -156,10 +156,10 @@ class KTOTrainerTester(unittest.TestCase):
             self.assertListEqual(tokenized_dataset["prompt"], train_dataset["prompt"])
             self.assertListEqual(tokenized_dataset["completion"], train_dataset["completion"])
             self.assertListEqual(tokenized_dataset["label"], train_dataset["label"])
-            self.assertListEqual(tokenized_dataset["prompt_input_ids"][0], [31137])
-            self.assertListEqual(tokenized_dataset["prompt_attention_mask"][0], [1])
-            self.assertListEqual(tokenized_dataset["answer_input_ids"][0], [374, 2664, 1091, 16965, 13])
-            self.assertListEqual(tokenized_dataset["answer_attention_mask"][0], [1, 1, 1, 1, 1])
+            self.assertListEqual(tokenized_dataset["prompt_input_ids"][0], [46518, 374, 2664, 1091])
+            self.assertListEqual(tokenized_dataset["prompt_attention_mask"][0], [1, 1, 1, 1])
+            self.assertListEqual(tokenized_dataset["answer_input_ids"][0], [27261, 13])
+            self.assertListEqual(tokenized_dataset["answer_attention_mask"][0], [1, 1])
 
             # Test corruption of (prompt, completion) pairs for KL dataset
             for batch_size in [2, 3]:
@@ -196,13 +196,15 @@ class KTOTrainerTester(unittest.TestCase):
             self.assertListEqual(processed_dataset["prompt"], train_dataset["prompt"])
             self.assertListEqual(processed_dataset["completion"], train_dataset["completion"])
             self.assertListEqual(processed_dataset["label"], train_dataset["label"])
-            self.assertListEqual(processed_dataset["prompt_input_ids"][0], [31137])
-            self.assertListEqual(processed_dataset["prompt_attention_mask"][0], [1])
+            self.assertListEqual(processed_dataset["prompt_input_ids"][0], [46518, 374, 2664, 1091])
+            self.assertListEqual(processed_dataset["prompt_attention_mask"][0], [1, 1, 1, 1])
             self.assertListEqual(
-                processed_dataset["completion_input_ids"][0], [31137, 374, 2664, 1091, 16965, 13, 151645]
+                processed_dataset["completion_input_ids"][0], [46518, 374, 2664, 1091, 27261, 13, 151645]
             )
             self.assertListEqual(processed_dataset["completion_attention_mask"][0], [1, 1, 1, 1, 1, 1, 1])
-            self.assertListEqual(processed_dataset["completion_labels"][0], [-100, 374, 2664, 1091, 16965, 13, 151645])
+            self.assertListEqual(
+                processed_dataset["completion_labels"][0], [-100, -100, -100, -100, 27261, 13, 151645]
+            )
 
     def test_kto_trainer_without_providing_ref_model(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -235,11 +237,10 @@ class KTOTrainerTester(unittest.TestCase):
 
             self.assertIsNotNone(trainer.state.log_history[-1]["train_loss"])
 
-            # check the params have changed
+            # Check that the parameters have changed
             for n, param in previous_trainable_params.items():
                 new_param = trainer.model.get_parameter(n)
-                # check the params have changed - ignore 0 biases
-                if param.sum() != 0:
+                if param.sum() != 0:  # ignore 0 biases
                     self.assertFalse(torch.equal(param, new_param))
 
     @require_peft
@@ -285,12 +286,11 @@ class KTOTrainerTester(unittest.TestCase):
 
             self.assertIsNotNone(trainer.state.log_history[-1]["train_loss"])
 
-            # check the params have changed
+            # Check that the parameters have changed
             for n, param in previous_trainable_params.items():
                 if "lora" in n:
                     new_param = trainer.model.get_parameter(n)
-                    # check the params have changed - ignore 0 biases
-                    if param.sum() != 0:
+                    if param.sum() != 0:  # ignore 0 biases
                         self.assertFalse(torch.equal(param, new_param))
 
     @require_no_wandb
@@ -313,8 +313,8 @@ class KTOTrainerTester(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                expected_regex="`generate_during_eval=True` requires Weights and Biases to be installed."
-                " Please install with `pip install wandb` to resolve.",
+                expected_regex="`generate_during_eval=True` requires Weights and Biases or Comet to be installed."
+                " Please install `wandb` or `comet-ml` to resolve.",
             ):
                 KTOTrainer(
                     model=self.model,

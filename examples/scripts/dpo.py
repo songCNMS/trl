@@ -1,4 +1,4 @@
-# Copyright 2023 The HuggingFace Inc. team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,23 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-# Full training
-python examples/scripts/dpo.py \
-    --dataset_name trl-lib/ultrafeedback_binarized \
-    --model_name_or_path Qwen/Qwen2-0.5B-Instruct \
-    --learning_rate 5.0e-7 \
-    --num_train_epochs 1 \
-    --per_device_train_batch_size 2 \
-    --gradient_accumulation_steps 8 \
-    --gradient_checkpointing \
-    --logging_steps 25 \
-    --eval_strategy steps \
-    --eval_steps 50 \
-    --output_dir Qwen2-0.5B-DPO \
-    --no_remove_unused_columns
 
 # LoRA:
+"""
 python examples/scripts/dpo.py \
     --dataset_name trl-lib/ultrafeedback_binarized \
     --model_name_or_path Qwen/Qwen2-0.5B-Instruct \
@@ -45,6 +31,7 @@ python examples/scripts/dpo.py \
     --lora_r 32 \
     --lora_alpha 16
 """
+
 import os
 from pathlib import Path
 path = Path(os.path.dirname(os.path.realpath(__file__)))
