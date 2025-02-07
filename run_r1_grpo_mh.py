@@ -257,6 +257,7 @@ def grpo_function(
     ##################################
 
     training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "./models/"), training_args.output_dir)
+    os.makedirs(training_args.output_dir, exist_ok=True)
     logger.info("*** Save model ***")
     trainer.model.config.use_cache = True
     trainer.save_model(training_args.output_dir)
