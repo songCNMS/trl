@@ -40,7 +40,7 @@ target:
   workspace_name: rag-workspace-eastus
 
 data:
-  local_dir: ./
+  local_dir: data/
   remote_dir: data/
 
 code:
@@ -52,7 +52,7 @@ code:
 # python experiment.py --seed 123 --env hopper --dataset medium-expert --eta 1.0 --grad_norm 9.0 --exp_name qt --save_path ./save/ --max_iters 100 --num_steps_per_iter 10000 --lr_decay --early_stop --k_rewards --use_discount --reprogram --desc_reg
 
 jobs:
-- name: GRPO_MH
+- name: GRPO_MH_Qwen7b
   identity: managed
   submit_args:
     env:
@@ -60,6 +60,25 @@ jobs:
   sku: 80G4-A100
   command:
     - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-7b-deepseek-r1.yaml
+
+- name: GRPO_MH_llama8b
+  identity: managed
+  submit_args:
+    env:
+      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+  sku: 80G4-A100
+  command:
+    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-llama-8b-deepseek-r1.yaml
+
+
+- name: GRPO_MH_Qwen3b
+  identity: managed
+  submit_args:
+    env:
+      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+  sku: 80G2-A100
+  command:
+    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-3b-deepseek-r1.yaml
 
 # search:
 #   job_template:

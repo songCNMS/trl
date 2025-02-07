@@ -206,7 +206,7 @@ def grpo_function(
     #####################
     # Prepare and format dataset
     #####################
-    data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "./data/"), "grpo_data.json")
+    data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data.json")
     dataset = load_dataset("json", data_files=data_loc)["train"]
     # convert our dataset to the r1 prompt
     dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"]))
