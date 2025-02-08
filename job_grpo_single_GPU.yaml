@@ -1,0 +1,116 @@
+description: GRPO on decomposition training
+
+
+environment:
+  # image: amlt-sing/acpt-torch2.3.1-py3.10-cuda12.1-ubuntu22.04:20240918T133309423
+  image: lesong/nvidia-cuda-mujoco:v6
+  username: f2e15e898c154795b7a8c9a9d936095d
+  registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
+
+  setup:
+    - apt-get update -y
+    - export PATH=$$HOME/.local/bin:$$PATH
+    - export PYTHONPATH=$$HOME/.local/bin:$$PYTHONPATH
+    - apt-get install -y cuda-toolkit-12.1
+    - pip install --upgrade setuptools pip wheel
+    - pip install nvidia-pyindex
+    - pip install nvidia-cuda-runtime-cu12 nvidia-cuda-nvcc-cu12
+    - export CUDA_HOME=/usr/local/cuda
+    - export PATH=$$CUDA_HOME/bin:$$PATH
+    # - export LD_LIBRARY_PATH=$$CUDA_HOME/lib64:$$LD_LIBRARY_PATH
+    - pip install packaging==23.1
+    - pip install "setuptools<71.0.0" --index-url https://download.pytorch.org/whl/cu121
+    - pip install tensorboard
+    - pip install torch==2.5.1
+    - pip install flash-attn 
+    - pip install  -U transformers==4.48.1
+    - pip install -U datasets==3.1.0
+    - pip install -U accelerate==1.3.0
+    - pip install -U hf-transfer==0.1.9
+    - pip install -U deepspeed==0.15.4
+    - pip install -U trl==0.14.0
+    - pip install vllm==0.7.0
+    - pip install omegaconf
+    - pip install pydotenv
+
+target:
+  service: sing
+  # name: palisades03
+  name: msrresrchvc
+  # msrresrchvc: A100-80G
+  # name: msrresrchlab
+  # name: msroctobasicvc
+  workspace_name: rag-workspace-eastus
+
+data:
+  local_dir: data/
+  remote_dir: data/
+
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: ./
+
+
+# python experiment.py --seed 123 --env hopper --dataset medium-expert --eta 1.0 --grad_norm 9.0 --exp_name qt --save_path ./save/ --max_iters 100 --num_steps_per_iter 10000 --lr_decay --early_stop --k_rewards --use_discount --reprogram --desc_reg
+
+jobs:
+- name: GRPO_MH_phi4
+  identity: managed
+  submit_args:
+    env:
+      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+  sku: 80G1
+  command:
+    - python grpo.py base_model=microsoft/phi-4
+
+- name: GRPO_MH_llama8b
+  identity: managed
+  submit_args:
+    env:
+      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+  sku: 80G1
+  command:
+    - python grpo.py base_model=meta-llama/Llama-3.1-8B-Instruct
+
+
+- name: GRPO_MH_Qwen14b
+  identity: managed
+  submit_args:
+    env:
+      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+  sku: 80G1
+  command:
+    - python grpo.py base_model=Qwen/Qwen2.5-14B-Instruct
+
+# search:
+#   job_template:
+#     # you may use {random_string:s} to avoid job name collisions
+#     # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
+#     # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
+#     name: "{experiment_name:s}_{auto:3s}"
+#     identity: managed
+#     submit_args:
+#       env:
+#         _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#     sku: 40G1
+#     command:
+#     - python experiment.py --seed 123 --env {env_name} --dataset {dataset} --eta {eta} --grad_norm {grad_norm} --exp_name qt --save_path ./save/ --max_iters 20 --num_steps_per_iter 10000 --lr_decay --k_rewards --use_discount --reprogram --desc_reg --eta3 {eta3}
+#   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
+#   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
+#   max_trials: 324
+#   parallel_trials: 16  # number of trials to - in parallel. Default: equals to max_trials.
+#   params:
+#     - name: env_name
+#       values: ["hopper", "halfcheetah", "walker2d"]
+#     - name: dataset
+#       values: ["expert", "medium", "medium-replay", "random"]
+#     - name: eta
+#       values: [0.1, 1.0, 10.0]  # or equivalently choice(0.5, 0.9, 0.99)
+#     - name: grad_norm
+#       # spec: hyperdrive  # the default value
+#       values: [0.1, 1.0, 10.0]
+#     - name: eta3
+#       # spec: hyperdrive  # the default value
+#       values: [0.1, 1.0, 10.0]
+      
