@@ -176,8 +176,16 @@ def grpo_function(
         revision=model_args.model_revision,
         trust_remote_code=model_args.trust_remote_code,
     )
+    
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+        if tokenizer.eos_token is None:
+            tokenizer.pad_token = tokenizer.unk_token
+            # tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            # Avoiding mismatch between model input and tokenizer length size
+            # trainer.model.resize_token_embeddings(len(tokenizer))
+            # trainer.ref_model.resize_token_embeddings(len(tokenizer))
+        else:
+            tokenizer.pad_token = tokenizer.eos_token
 
     def generate_r1_prompt(prompt, target):
         r1_prefix = [
@@ -225,24 +233,26 @@ def grpo_function(
         model=model_args.model_name_or_path,
         reward_funcs=[format_reward_func, equation_reward_func],
         args=training_args,
+        processing_class=tokenizer,
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
         peft_config=get_peft_config(model_args),
     )
+    
 
     ###############
     # Training loop
     ###############
     # Check for last checkpoint
-    last_checkpoint = get_checkpoint(training_args)
-    if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-        logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
+    # last_checkpoint = get_checkpoint(training_args)
+    # if last_checkpoint is not None and training_args.resume_from_checkpoint is None:
+    #     logger.info(f"Checkpoint detected, resuming training at {last_checkpoint}.")
 
     # Train the model
     logger.info(
         f'*** Starting training {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} for {training_args.num_train_epochs} epochs***'
     )
-    train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
+    train_result = trainer.train()
     # Log and save metrics
     metrics = train_result.metrics
     metrics["train_samples"] = len(train_dataset)

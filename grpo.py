@@ -7,6 +7,9 @@ import os
 from run_r1_grpo_mh import equation_reward_func, format_reward_func
 
 
+base_model = "meta-llama/Llama-3.1-8B-Instruct"
+
+
 def generate_r1_prompt(prompt, target):
     r1_prefix = [
         {
@@ -23,7 +26,7 @@ def generate_r1_prompt(prompt, target):
         "target": target,
     }
 
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-14B-Instruct")
+tokenizer = AutoTokenizer.from_pretrained(base_model)
 
 # Load dataset from Hugging Face Hub
 data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data.json")
@@ -42,7 +45,7 @@ test_dataset = train_test_split["test"]
 
 # our model we are going to use as policy 
 model_config = ModelConfig(
-    model_name_or_path="Qwen/Qwen2.5-14B-Instruct",
+    model_name_or_path=base_model,
     torch_dtype="bfloat16",
     attn_implementation="flash_attention_2",
     use_peft=True,
@@ -51,7 +54,7 @@ model_config = ModelConfig(
 
 # Hyperparameters
 training_args = GRPOConfig(
-    output_dir="models/qwen-r1-aha-moment",
+    output_dir=f"models/{base_model}-r1-aha-moment",
     learning_rate=5e-7,
     lr_scheduler_type="cosine",
     logging_steps=100,
