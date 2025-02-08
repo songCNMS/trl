@@ -15,11 +15,11 @@ environment:
     - pip install --upgrade setuptools pip wheel
     - pip install nvidia-pyindex
     - pip install nvidia-cuda-runtime-cu12 nvidia-cuda-nvcc-cu12
-    # - export CUDA_HOME=/usr/local/cuda
-    # - export PATH=$$CUDA_HOME/bin:$$PATH
-    # - export LD_LIBRARY_PATH=$$CUDA_HOME/lib64:$$LD_LIBRARY_PATH
+    - export CUDA_HOME=/usr/local/cuda
+    - export PATH=$$CUDA_HOME/bin:$$PATH
+    - export LD_LIBRARY_PATH=$$CUDA_HOME/lib64:$$LD_LIBRARY_PATH
     - pip install packaging==23.1
-    - pip install setuptools<71.0.0 --index-url https://download.pytorch.org/whl/cu121
+    - pip install “setuptools<71.0.0” --index-url https://download.pytorch.org/whl/cu121
     - pip install tensorboard
     - pip install torch==2.5.1
     - pip install flash-attn 
@@ -33,8 +33,8 @@ environment:
 
 target:
   service: sing
-  # name: palisades03
-  name: msrresrchvc
+  name: palisades03
+  # name: msrresrchvc
   # name: msrresrchlab
   # name: msroctobasicvc
   workspace_name: rag-workspace-eastus
@@ -76,7 +76,7 @@ jobs:
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G2-A100
+  sku: 80G4-A100
   command:
     - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-3b-deepseek-r1.yaml
 
