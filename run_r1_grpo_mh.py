@@ -228,7 +228,10 @@ def grpo_function(
     #########################
     # Instantiate DPO trainer
     #########################
-
+    peft_config=get_peft_config(model_args)
+    print("peft_config: ", peft_config)
+    
+    
     trainer = GRPOTrainer(
         model=model_args.model_name_or_path,
         reward_funcs=[format_reward_func, equation_reward_func],
@@ -236,7 +239,7 @@ def grpo_function(
         processing_class=tokenizer,
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
-        peft_config=get_peft_config(model_args),
+        peft_config=peft_config,
     )
     
 
