@@ -151,3 +151,4 @@ logs
 amlt
 gpt_api_config.py
 models
+env_configs
