@@ -55,31 +55,34 @@ code:
 # python experiment.py --seed 123 --env hopper --dataset medium-expert --eta 1.0 --grad_norm 9.0 --exp_name qt --save_path ./save/ --max_iters 100 --num_steps_per_iter 10000 --lr_decay --early_stop --k_rewards --use_discount --reprogram --desc_reg
 
 jobs:
-- name: GRPO_MH_phi4
+- name: GRPO_MH_phi4_single
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
   sku: 80G1
+  preemptible: True
   command:
     - python grpo.py base_model=microsoft/phi-4
 
-- name: GRPO_MH_llama8b
+- name: GRPO_MH_llama8b_single
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
   sku: 80G1
+  preemptible: True
   command:
     - python grpo.py base_model=meta-llama/Llama-3.1-8B-Instruct
 
 
-- name: GRPO_MH_Qwen14b
+- name: GRPO_MH_Qwen14b_single
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
   sku: 80G1
+  preemptible: True
   command:
     - python grpo.py base_model=Qwen/Qwen2.5-14B-Instruct
 
