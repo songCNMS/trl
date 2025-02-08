@@ -3,11 +3,16 @@ from datasets import load_dataset
 from trl import GRPOConfig, GRPOTrainer, get_peft_config, ModelConfig
 import re
 import os
-
 from run_r1_grpo_mh import equation_reward_func, format_reward_func
+from omegaconf import OmegaConf
 
+from dotenv import load_dotenv
 
-base_model = "meta-llama/Llama-3.1-8B-Instruct"
+load_dotenv("./env_configs/.env")
+
+cfg = OmegaConf.from_cli()
+base_model = cfg.get("base_model", "meta-llama/Llama-3.1-8B-Instruct")
+model_name = base_model.split("/")[-1]
 
 
 def generate_r1_prompt(prompt, target):
@@ -27,6 +32,15 @@ def generate_r1_prompt(prompt, target):
     }
 
 tokenizer = AutoTokenizer.from_pretrained(base_model)
+if tokenizer.pad_token is None:
+    if tokenizer.eos_token is None:
+        tokenizer.pad_token = tokenizer.unk_token
+        # tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        # Avoiding mismatch between model input and tokenizer length size
+        # trainer.model.resize_token_embeddings(len(tokenizer))
+        # trainer.ref_model.resize_token_embeddings(len(tokenizer))
+    else:
+        tokenizer.pad_token = tokenizer.eos_token
 
 # Load dataset from Hugging Face Hub
 data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data.json")
@@ -54,7 +68,7 @@ model_config = ModelConfig(
 
 # Hyperparameters
 training_args = GRPOConfig(
-    output_dir=f"models/{base_model}-r1-aha-moment",
+    output_dir=f"models/{model_name}-r1-aha-moment",
     learning_rate=5e-7,
     lr_scheduler_type="cosine",
     logging_steps=100,
@@ -70,8 +84,12 @@ training_args = GRPOConfig(
     num_generations=2,
     save_steps=1000,
     beta=0.001,
-    
-)
+    report_to="tensorboard",
+    )
+
+training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), training_args.output_dir)
+os.makedirs(training_args.output_dir, exist_ok=True)
+
 trainer = GRPOTrainer(
     model=model_config.model_name_or_path,
     reward_funcs=[format_reward_func, equation_reward_func],
@@ -79,11 +97,11 @@ trainer = GRPOTrainer(
     train_dataset=train_dataset,
     eval_dataset=test_dataset,
     peft_config=get_peft_config(model_config),
+    processing_class=tokenizer,
 )
-
 
 # Train and push the model to the Hub
 trainer.train()
 # Save model
-os.makedirs(training_args.output_dir, exist_ok=True)
+
 trainer.save_model(training_args.output_dir)

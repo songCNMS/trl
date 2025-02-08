@@ -14,6 +14,11 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 from trl import GRPOConfig, GRPOTrainer, get_peft_config, ModelConfig, TrlParser
 
+from dotenv import load_dotenv
+
+
+
+load_dotenv("./env_configs/.env")
 
 ########################
 # Custom dataclasses
