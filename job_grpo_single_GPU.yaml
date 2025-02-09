@@ -15,7 +15,7 @@ environment:
     - pip install --upgrade setuptools pip wheel
     - pip install nvidia-pyindex
     - pip install nvidia-cuda-runtime-cu12 nvidia-cuda-nvcc-cu12
-    - export CUDA_HOME=/usr/local/cuda
+    - export CUDA_HOME=/usr/local/cuda-12.2
     - export PATH=$$CUDA_HOME/bin:$$PATH
     # - export LD_LIBRARY_PATH=$$CUDA_HOME/lib64:$$LD_LIBRARY_PATH
     - pip install packaging==23.1
@@ -29,6 +29,7 @@ environment:
     - pip install -U hf-transfer==0.1.9
     - pip install -U deepspeed==0.15.4
     - pip install -U trl==0.14.0
+    - pip install -U peft
     - pip install vllm==0.7.0
     - pip install omegaconf
     - pip install pydotenv

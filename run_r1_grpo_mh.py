@@ -13,12 +13,11 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers import AutoTokenizer
 from datasets import load_dataset
 from trl import GRPOConfig, GRPOTrainer, get_peft_config, ModelConfig, TrlParser
-
 from dotenv import load_dotenv
 
 
 
-load_dotenv("./env_configs/.env")
+load_dotenv("env_configs/.env")
 
 ########################
 # Custom dataclasses
@@ -233,9 +232,11 @@ def grpo_function(
     #########################
     # Instantiate DPO trainer
     #########################
+    
+    if model_args.model_name_or_path.find("microsoft") >= 0:
+        model_args.lora_target_modules = ["qkv_proj", "o_proj"]
     peft_config=get_peft_config(model_args)
     print("peft_config: ", peft_config)
-    
     
     trainer = GRPOTrainer(
         model=model_args.model_name_or_path,
@@ -277,7 +278,7 @@ def grpo_function(
     training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "./models/"), training_args.output_dir)
     os.makedirs(training_args.output_dir, exist_ok=True)
     logger.info("*** Save model ***")
-    trainer.model.config.use_cache = True
+    trainer.model.config.use_cache = False
     trainer.save_model(training_args.output_dir)
     logger.info(f"Model saved to {training_args.output_dir}")
     training_args.distributed_state.wait_for_everyone()  # wait for all processes to load

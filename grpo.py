@@ -81,10 +81,13 @@ training_args = GRPOConfig(
     # GRPO specific parameters
     max_prompt_length=2560,
     max_completion_length=256, # max length of the generated output for our solution
-    num_generations=2,
+    num_generations=8,
     save_steps=1000,
     beta=0.001,
     report_to="tensorboard",
+    use_vllm=True,
+    vllm_device="cuda:3",
+    vllm_gpu_memory_utilization=0.5
     )
 
 training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), training_args.output_dir)
