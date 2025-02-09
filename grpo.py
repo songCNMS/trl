@@ -5,14 +5,14 @@ import re
 import os
 from run_r1_grpo_mh import equation_reward_func, format_reward_func
 from omegaconf import OmegaConf
-
 from dotenv import load_dotenv
 
-load_dotenv("./env_configs/.env")
 
+load_dotenv("./env_configs/.env")
 cfg = OmegaConf.from_cli()
 base_model = cfg.get("base_model", "meta-llama/Llama-3.1-8B-Instruct")
 model_name = base_model.split("/")[-1]
+hf_token = os.environ["HF_KEY"]
 
 
 def generate_r1_prompt(prompt, target):
@@ -86,12 +86,13 @@ training_args = GRPOConfig(
     beta=0.001,
     report_to="tensorboard",
     use_vllm=True,
-    vllm_device="cuda:3",
+    # vllm_device="cuda:3",
     vllm_gpu_memory_utilization=0.5
     )
 
 training_args.output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), training_args.output_dir)
 os.makedirs(training_args.output_dir, exist_ok=True)
+training_args.model_init_kwargs = {"token": hf_token}
 
 trainer = GRPOTrainer(
     model=model_config.model_name_or_path,

@@ -3,7 +3,7 @@ description: GRPO on decomposition training
 
 environment:
   # image: amlt-sing/acpt-torch2.3.1-py3.10-cuda12.1-ubuntu22.04:20240918T133309423
-  image: lesong/nvidia-cuda-mujoco:v6
+  image: lesong/nvidia-cuda-mujoco:v7
   username: f2e15e898c154795b7a8c9a9d936095d
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
 
@@ -32,11 +32,12 @@ environment:
     - pip install vllm==0.7.0
     - pip install omegaconf
     - pip install pydotenv
+    - pip install peft
 
 target:
   service: sing
-  name: palisades03
-  # name: msrresrchvc
+  # name: palisades03
+  name: msrresrchvc
   # name: msrresrchlab
   # name: msroctobasicvc
   workspace_name: rag-workspace-eastus
@@ -54,33 +55,36 @@ code:
 # python experiment.py --seed 123 --env hopper --dataset medium-expert --eta 1.0 --grad_norm 9.0 --exp_name qt --save_path ./save/ --max_iters 100 --num_steps_per_iter 10000 --lr_decay --early_stop --k_rewards --use_discount --reprogram --desc_reg
 
 jobs:
-- name: GRPO_MH_Qwen7b
+- name: GRPO_MH_phi4
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G4-A100
+  sku: 80G4
+  preemptible: true
   command:
-    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-7b-deepseek-r1.yaml
+    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-phi4-deepseek-r1.yaml
 
 - name: GRPO_MH_llama8b
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G4-A100
+  sku: 80G4
+  preemptible: true
   command:
     - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-llama-8b-deepseek-r1.yaml
 
 
-- name: GRPO_MH_Qwen3b
+- name: GRPO_MH_Qwen14b
   identity: managed
   submit_args:
     env:
       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G4-A100
+  sku: 80G4
+  preemptible: true
   command:
-    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-3b-deepseek-r1.yaml
+    - accelerate launch --num_processes 3 --config_file deepspeed_zero3.yaml run_r1_grpo_mh.py --config grpo-qwen-2.5-14b-deepseek-r1.yaml
 
 # search:
 #   job_template:

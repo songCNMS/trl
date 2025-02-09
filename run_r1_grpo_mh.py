@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 
 
 load_dotenv("env_configs/.env")
+hf_token = os.environ["HF_KEY"]
+
 
 ########################
 # Custom dataclasses
@@ -237,6 +239,7 @@ def grpo_function(
         model_args.lora_target_modules = ["qkv_proj", "o_proj"]
     peft_config=get_peft_config(model_args)
     print("peft_config: ", peft_config)
+    training_args.model_init_kwargs = {"token": hf_token}
     
     trainer = GRPOTrainer(
         model=model_args.model_name_or_path,
