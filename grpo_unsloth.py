@@ -30,12 +30,16 @@ import torch
 import os
 from trl import GRPOConfig, GRPOTrainer
 from omegaconf import OmegaConf
+from dotenv import load_dotenv
 
+
+load_dotenv("./env_configs/.env")
 cfg = OmegaConf.from_cli()
 
 
-# unsloth/Qwen2.5-14B-Instruct
-# unsloth/Meta-Llama-3.1-8B-Instruct
+# CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=unsloth/Phi-4
+# CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
+# CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
 
 base_model = cfg.get("base_model", "unsloth/Phi-4")
 model_name = base_model.split("/")[-1]
