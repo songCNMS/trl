@@ -143,3 +143,4 @@ trainer.train()
 # model.save_lora("grpo_saved_lora")
 
 model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_lora", tokenizer, save_method = "lora")
+model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_vllm", tokenizer, save_method = "merged_16bit")
