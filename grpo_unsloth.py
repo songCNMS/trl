@@ -33,114 +33,124 @@ from omegaconf import OmegaConf
 from dotenv import load_dotenv
 
 
-load_dotenv("./env_configs/.env")
-cfg = OmegaConf.from_cli()
 
 
-# CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=unsloth/Phi-4
-# CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
-# CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
+if __name__ == "__main__":
+    load_dotenv("./env_configs/.env")
+    cfg = OmegaConf.from_cli()
 
-base_model = cfg.get("base_model", "unsloth/Phi-4")
-model_name = base_model.split("/")[-1]
+    base_models = cfg.get("base_model", "unsloth/Phi-4").split(",")
 
-max_seq_length = 2560 # Can increase for longer reasoning traces
-lora_rank = 16 # Larger rank = smarter, but slower
+    # CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=unsloth/Phi-4
+    # CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
+    # CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
 
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = base_model,
-    max_seq_length = max_seq_length,
-    load_in_4bit = True, # False for LoRA 16bit
-    fast_inference = True, # Enable vLLM fast inference
-    max_lora_rank = lora_rank,
-    gpu_memory_utilization = 0.7, # Reduce if out of memory
-)
+    for base_model in base_models:
+        # base_model = cfg.get("base_model", "unsloth/Phi-4")
+        model_name = base_model.split("/")[-1]
 
-model = FastLanguageModel.get_peft_model(
-    model,
-    r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-    target_modules = ["gate_proj", "up_proj", "down_proj",],
-    lora_alpha = lora_rank,
-    use_gradient_checkpointing = "unsloth", # Enable long context finetuning
-    random_state = 3407,
-)
+        max_seq_length = 3096 # Can increase for longer reasoning traces
+        lora_rank = 32 # Larger rank = smarter, but slower
 
-output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), model_name)
-os.makedirs(output_dir, exist_ok=True)
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name = base_model,
+            max_seq_length = max_seq_length,
+            load_in_4bit = True, # False for LoRA 16bit
+            fast_inference = True, # Enable vLLM fast inference
+            max_lora_rank = lora_rank,
+            gpu_memory_utilization = 0.5, # Reduce if out of memory
+        )
 
+        if base_model.lower().find("phi") >= 0:
+            lora_target_modules = ["qkv_proj", "o_proj"]
+        else:
+            lora_target_modules = ["gate_proj", "up_proj", "down_proj"]
 
-training_args = GRPOConfig(
-    use_vllm = True, # use vLLM for fast inference!
-    learning_rate = 5e-6,
-    adam_beta1 = 0.9,
-    adam_beta2 = 0.99,
-    weight_decay = 0.1,
-    warmup_ratio = 0.05,
-    lr_scheduler_type = "cosine",
-    optim = "paged_adamw_8bit",
-    logging_steps = 100,
-    bf16 = is_bfloat16_supported(),
-    fp16 = not is_bfloat16_supported(),
-    per_device_train_batch_size = 1,
-    gradient_accumulation_steps = 1, # Increase to 4 for smoother training
-    num_generations = 6, # Decrease if out of memory
-    max_prompt_length = 2560,
-    max_completion_length = 200,
-    # num_train_epochs = 1, # Set to 1 for a full training run
-    max_steps = 10000,
-    save_steps = 1000,
-    max_grad_norm = 0.1,
-    report_to = "none", # Can use Weights & Biases
-    output_dir = output_dir,
-)
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+            target_modules = lora_target_modules,
+            lora_alpha = lora_rank,
+            use_gradient_checkpointing = "unsloth", # Enable long context finetuning
+            random_state = 3407,
+        )
+
+        output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), model_name)
+        os.makedirs(output_dir, exist_ok=True)
 
 
-def generate_r1_prompt(prompt, target):
-    r1_prefix = [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant. ",
-        },
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": f"Answer: {target}"},
-    ]
-    return {
-        "prompt": tokenizer.apply_chat_template(
-            r1_prefix, tokenize=False, continue_final_message=True
-        ),
-        "target": target,
-    }
+        training_args = GRPOConfig(
+            use_vllm = True, # use vLLM for fast inference!
+            learning_rate = 5e-6,
+            adam_beta1 = 0.9,
+            adam_beta2 = 0.99,
+            weight_decay = 0.1,
+            warmup_ratio = 0.05,
+            lr_scheduler_type = "cosine",
+            optim = "paged_adamw_8bit",
+            logging_steps = 100,
+            bf16 = is_bfloat16_supported(),
+            fp16 = not is_bfloat16_supported(),
+            per_device_train_batch_size = 2,
+            gradient_accumulation_steps = 2, # Increase to 4 for smoother training
+            num_generations = 8, # Decrease if out of memory
+            max_prompt_length = max_seq_length,
+            max_completion_length = 200,
+            # num_train_epochs = 1, # Set to 1 for a full training run
+            max_steps = 20000,
+            save_steps = 5000,
+            max_grad_norm = 0.1,
+            report_to = "none", # Can use Weights & Biases
+            output_dir = output_dir,
+        )
 
 
-#####################
-# Prepare and format dataset
-#####################
-data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data.json")
-dataset = load_dataset("json", data_files=data_loc)["train"]
-# convert our dataset to the r1 prompt
-dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"]))
-
-# split the dataset into train and test
-train_test_split = dataset.train_test_split(test_size=0.1)
-
-train_dataset = train_test_split["train"]
-test_dataset = train_test_split["test"]
-
-trainer = GRPOTrainer(
-    model = model,
-    processing_class = tokenizer,
-    reward_funcs = [
-        equation_reward_func,
-        format_reward_func
-    ],
-    args = training_args,
-    train_dataset = train_dataset,
-)
-trainer.train()
+        def generate_r1_prompt(prompt, target):
+            r1_prefix = [
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant. ",
+                },
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": f"Answer: {target}"},
+            ]
+            return {
+                "prompt": tokenizer.apply_chat_template(
+                    r1_prefix, tokenize=False, continue_final_message=True
+                ),
+                "target": target,
+            }
 
 
-"""And now with the LoRA we just trained with GRPO - we first save the LoRA first!"""
-# model.save_lora("grpo_saved_lora")
+        #####################
+        # Prepare and format dataset
+        #####################
+        data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data_all.json")
+        dataset = load_dataset("json", data_files=data_loc)["train"]
+        # convert our dataset to the r1 prompt
+        dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"]))
 
-model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_lora", tokenizer, save_method = "lora")
-model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_vllm", tokenizer, save_method = "merged_16bit")
+        # split the dataset into train and test
+        train_test_split = dataset.train_test_split(test_size=0.1)
+
+        train_dataset = train_test_split["train"]
+        test_dataset = train_test_split["test"]
+
+        trainer = GRPOTrainer(
+            model = model,
+            processing_class = tokenizer,
+            reward_funcs = [
+                equation_reward_func,
+                format_reward_func
+            ],
+            args = training_args,
+            train_dataset = train_dataset,
+        )
+        trainer.train()
+
+
+        """And now with the LoRA we just trained with GRPO - we first save the LoRA first!"""
+        # model.save_lora("grpo_saved_lora")
+
+        model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_lora", tokenizer, save_method = "lora")
+        model.save_pretrained_merged(f"{output_dir}/{model_name}_GRPO_vllm", tokenizer, save_method = "merged_16bit")

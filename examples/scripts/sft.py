@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # dataset = load_dataset(args.dataset_name)
     data_dir_loc = os.path.join(os.getenv('AMLT_DATA_DIR', "data/"))
     print(data_dir_loc)
-    dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data.json")
+    dataset = load_dataset("json", data_files=f"{data_dir_loc}/cpo_data_all.json")
     dataset = dataset["train"].train_test_split(test_size=0.1)
     
     

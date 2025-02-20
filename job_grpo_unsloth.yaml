@@ -34,69 +34,68 @@ code:
   # $CONFIG_DIR is expanded to the directory of this config file
   local_dir: ./
 
-
 # python experiment.py --seed 123 --env hopper --dataset medium-expert --eta 1.0 --grad_norm 9.0 --exp_name qt --save_path ./save/ --max_iters 100 --num_steps_per_iter 10000 --lr_decay --early_stop --k_rewards --use_discount --reprogram --desc_reg
 
-jobs:
-- name: GRPO_MH_phi4_single
-  identity: managed
-  submit_args:
-    env:
-      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G1
-  preemptible: True
-  command:
-    - python grpo_unsloth.py base_model=unsloth/Phi-4
+# jobs:
+# - name: GRPO_MH_phi4_unsloth
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   sku: 80G1
+#   # preemptible: True
+#   command:
+#     - python grpo_unsloth.py base_model=unsloth/Phi-4
 
-- name: GRPO_MH_llama8b_single
-  identity: managed
-  submit_args:
-    env:
-      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G1
-  preemptible: True
-  command:
-    - python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
+# - name: GRPO_MH_llama8b_unsloth
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   sku: 80G1
+#   # preemptible: True
+#   command:
+#     - python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
 
 
-- name: GRPO_MH_Qwen14b_single
-  identity: managed
-  submit_args:
-    env:
-      _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-  sku: 80G1
-  preemptible: True
-  command:
-    - python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
+# - name: GRPO_MH_Qwen14b_unsloth
+#   identity: managed
+#   submit_args:
+#     env:
+#       _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+#   sku: 80G1
+#   # preemptible: True
+#   command:
+    # - python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
 
-# search:
-#   job_template:
-#     # you may use {random_string:s} to avoid job name collisions
-#     # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
-#     # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
-#     name: "{experiment_name:s}_{auto:3s}"
-#     identity: managed
-#     submit_args:
-#       env:
-#         _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-#     sku: 40G1
-#     command:
-#     - python experiment.py --seed 123 --env {env_name} --dataset {dataset} --eta {eta} --grad_norm {grad_norm} --exp_name qt --save_path ./save/ --max_iters 20 --num_steps_per_iter 10000 --lr_decay --k_rewards --use_discount --reprogram --desc_reg --eta3 {eta3}
-#   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
-#   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
-#   max_trials: 324
-#   parallel_trials: 16  # number of trials to - in parallel. Default: equals to max_trials.
-#   params:
-#     - name: env_name
-#       values: ["hopper", "halfcheetah", "walker2d"]
-#     - name: dataset
-#       values: ["expert", "medium", "medium-replay", "random"]
-#     - name: eta
-#       values: [0.1, 1.0, 10.0]  # or equivalently choice(0.5, 0.9, 0.99)
-#     - name: grad_norm
-#       # spec: hyperdrive  # the default value
-#       values: [0.1, 1.0, 10.0]
-#     - name: eta3
-#       # spec: hyperdrive  # the default value
-#       values: [0.1, 1.0, 10.0]
+search:
+  job_template:
+    # you may use {random_string:s} to avoid job name collisions
+    # {auto:3s} generates lr_0.00000_mom_0.5, .. etc
+    # {auto:2s} generates lr_0.00000_mo_0.5, .. etc
+    name: "{experiment_name:s}_{auto:3s}"
+    identity: managed
+    submit_args:
+      env:
+        _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
+    sku: 80G1
+    command:
+    - python grpo_unsloth.py base_model={base_model}
+  type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
+  sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
+  max_trials: 3
+  parallel_trials: 3  # number of trials to - in parallel. Default: equals to max_trials.
+  params:
+    - name: base_model
+      values: ["unsloth/Qwen2.5-14B-Instruct", "unsloth/Meta-Llama-3.1-8B-Instruct"]
+    # - name: dataset
+    #   values: ["expert", "medium", "medium-replay", "random"]
+    # - name: eta
+    #   values: [0.1, 1.0, 10.0]  # or equivalently choice(0.5, 0.9, 0.99)
+    # - name: grad_norm
+    #   # spec: hyperdrive  # the default value
+    #   values: [0.1, 1.0, 10.0]
+    # - name: eta3
+    #   # spec: hyperdrive  # the default value
+    #   values: [0.1, 1.0, 10.0]
       
