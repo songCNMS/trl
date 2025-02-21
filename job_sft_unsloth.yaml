@@ -2,14 +2,16 @@ description: Task Decomposition
 
   
 environment:
-  image: lesong/nvidia-cuda:v7
+  image: lesong/nvidia-cuda:v6
   username: f2e15e898c154795b7a8c9a9d936095d
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
-    - apt-get update -y
-    - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
-    - export PATH=/home/aiscuser/.local/bin:$$PATH
+    # - apt-get update -y
+    # - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
+    # - export PATH=/home/aiscuser/.local/bin:$$PATH
     # - export PYTHONPATH=$$PWD:$$PYTHONPATH
+    - pip install omegaconf tqdm
+    - pip install -U transformers 
     - pip install -U --no-deps bitsandbytes accelerate xformers==0.0.29 peft trl triton
     - pip install -U --no-deps cut_cross_entropy unsloth_zoo
     - pip install -U sentencepiece protobuf datasets huggingface_hub hf_transfer
@@ -88,7 +90,7 @@ search:
     sku: 40G1
     sla_tier: Premium # Standard, Premium
     command:
-    - python sft_unsloth base_model={base_model} r={r} alpha={alpha}
+    - python sft_unsloth.py base_model={base_model} r={r} alpha={alpha}
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
   max_trials: 30

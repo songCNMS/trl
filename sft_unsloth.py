@@ -140,7 +140,7 @@ if __name__ == "__main__":
         dataset_num_proc = 2,
         packing = False, # Can make training 5x faster for short sequences.
         # data_collator=collator,
-        data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
+        # data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
         args = TrainingArguments(
             per_device_train_batch_size = 2,
             gradient_accumulation_steps = 4,
