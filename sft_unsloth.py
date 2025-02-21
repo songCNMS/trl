@@ -23,7 +23,12 @@ if __name__ == "__main__":
     output_dir = cfg.get("output_dir", "logs/sft_unsloth/")
     base_model_name = cfg.get("base_model", "unsloth/Meta-Llama-3.1-8B-Instruct")
     read_model_name = base_model_name.split("/")[-1]
-    chat_template_name = cfg.get("template_name", "llama-3.1")
+    chat_template_name = "llama-3.1"
+    if base_model_name.lower().find("qwen") >= 0:
+        chat_template_name = "qwen2.5"
+    if base_model_name.lower().find("phi") >= 0:
+        chat_template_name = "phi-4"
+        
     lora_r = cfg.get("r", 16)
     lora_alpha = cfg.get("alpha", 16)
 
@@ -135,6 +140,7 @@ if __name__ == "__main__":
         dataset_num_proc = 2,
         packing = False, # Can make training 5x faster for short sequences.
         # data_collator=collator,
+        data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
         args = TrainingArguments(
             per_device_train_batch_size = 2,
             gradient_accumulation_steps = 4,

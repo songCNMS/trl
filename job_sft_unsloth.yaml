@@ -2,7 +2,7 @@ description: Task Decomposition
 
   
 environment:
-  image: lesong/nvidia-cuda:v5
+  image: lesong/nvidia-cuda:v7
   username: f2e15e898c154795b7a8c9a9d936095d
   registry: f2e15e898c154795b7a8c9a9d936095d.azurecr.io
   setup:
@@ -10,16 +10,17 @@ environment:
     - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
     - export PATH=/home/aiscuser/.local/bin:$$PATH
     # - export PYTHONPATH=$$PWD:$$PYTHONPATH
-    - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-    - pip install azureml-mlflow tensorboard --user
-    - pip install -r requirements.txt
-    - pip install trl==0.12.0
+    - pip install -U --no-deps bitsandbytes accelerate xformers==0.0.29 peft trl triton
+    - pip install -U --no-deps cut_cross_entropy unsloth_zoo
+    - pip install -U sentencepiece protobuf datasets huggingface_hub hf_transfer
+    - pip install -U --no-deps unsloth
 
     
 target:
   service: sing
-  name: msrresrchvc
+  # name: msrresrchvc
   # name: msrresrchlab
+  name: palisades03
   workspace_name: rag-workspace-eastus
 
 data:
@@ -84,16 +85,18 @@ search:
     submit_args:
       env:
         _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-    sku: 80G1
+    sku: 40G1
     sla_tier: Premium # Standard, Premium
     command:
-    - python examples/scripts/sft.py --model_name_or_path="{llm_model}" --dataset_name "none" --dataset_text_field="text" --report_to="wandb" --learning_rate=1.41e-5 --per_device_train_batch_size=1 --gradient_accumulation_steps=1 --output_dir="logs/{llm_model}" --logging_steps=100 --save_steps=10000 --num_train_epochs=2 --max_steps=-1 --gradient_checkpointing --use_peft --lora_r=16 --lora_alpha={lora_alpha} --max_seq_length 4096
+    - python sft_unsloth base_model={base_model} r={r} alpha={alpha}
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
-  max_trials: 15
+  max_trials: 30
   params:
-    - name: llm_model
-      values: ["microsoft/phi-4", "Qwen/Qwen2.5-14B-Instruct", "meta-llama/Llama-3.1-8B-Instruct"]
-    - name: lora_alpha
+    - name: base_model
+      values: ["unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4"]
+    - name: r
+      values: [16, 32]  # or equivalently choice(0.5, 0.9, 0.99)
+    - name: alpha
       values: [4, 8, 16, 32, 64]  # or equivalently choice(0.5, 0.9, 0.99)
       

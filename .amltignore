@@ -9,3 +9,5 @@ tests
 models
 runs
 trl_bak
+lora_model
+outputs
