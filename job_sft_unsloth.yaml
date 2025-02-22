@@ -10,12 +10,12 @@ environment:
     # - export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:$$LD_LIBRARY_PATH
     # - export PATH=/home/aiscuser/.local/bin:$$PATH
     # - export PYTHONPATH=$$PWD:$$PYTHONPATH
-    - pip install omegaconf tqdm
+    - pip install omegaconf tqdm rich
     - pip install -U transformers 
-    - pip install -U --no-deps bitsandbytes accelerate xformers==0.0.29 peft trl triton
-    - pip install -U --no-deps cut_cross_entropy unsloth_zoo
+    - pip install -U bitsandbytes accelerate xformers==0.0.29 peft trl triton
+    - pip install -U cut_cross_entropy unsloth_zoo
     - pip install -U sentencepiece protobuf datasets huggingface_hub hf_transfer
-    - pip install -U --no-deps unsloth
+    - pip install -U unsloth
 
     
 target:
@@ -26,7 +26,7 @@ target:
   workspace_name: rag-workspace-eastus
 
 data:
-  local_dir: ./data/
+  local_dir: data/
   remote_dir: data/
 
 code:
@@ -96,7 +96,7 @@ search:
   max_trials: 30
   params:
     - name: base_model
-      values: ["unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4"]
+      values: ["unsloth/Meta-Llama-3.1-8B-Instruct"]  #, "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4"]
     - name: r
       values: [16, 32]  # or equivalently choice(0.5, 0.9, 0.99)
     - name: alpha

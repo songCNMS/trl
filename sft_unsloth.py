@@ -57,7 +57,7 @@ if __name__ == "__main__":
     ] # More models at https://huggingface.co/unsloth
 
 
-    data_dir_loc = os.path.join(os.getenv('AMLT_DATA_DIR', "data/"))
+    data_dir_loc = os.getenv('AMLT_DATA_DIR', "data/")
     print(data_dir_loc)
     dataset = load_dataset("json", data_files=f"{data_dir_loc}/sft_data_all.json")
     max_seq_length = max([len(ds["instruction"]) + len(ds["output"]) for ds in dataset['train']])+200
@@ -90,7 +90,6 @@ if __name__ == "__main__":
             texts.append(text)
         return { "text" : texts, }
 
-    dataset = load_dataset("json", data_files=f"data/sft_data_all.json")
     dataset = dataset.map(formatting_prompts_func, batched = True,)
     dataset = dataset["train"].train_test_split(test_size=0.1)
 
@@ -114,7 +113,7 @@ if __name__ == "__main__":
     #     chat_template = chat_template_name,
     # )
 
-    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "./"))
+    output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "data/"))
     # sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
     sub_dir_loc = f"{read_model_name}-r{lora_r}-alpha{lora_alpha}"
     print(output_dir_loc, sub_dir_loc)
