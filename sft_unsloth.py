@@ -168,7 +168,8 @@ if __name__ == "__main__":
 
 
     trainer_stats = trainer.train()
-    # model.save_pretrained(output_dir_loc)
-    # tokenizer.save_pretrained(output_dir_loc)
+    
+    model.save_pretrained(output_dir_loc)
+    tokenizer.save_pretrained(output_dir_loc)
     model.save_pretrained_merged(f"{output_dir_loc}/adapter", tokenizer, save_method = "lora")
     model.save_pretrained_merged(f"{output_dir_loc}/vllm", tokenizer, save_method = "merged_16bit")
