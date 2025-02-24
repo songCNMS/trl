@@ -16,6 +16,7 @@ environment:
     - pip install -U cut_cross_entropy unsloth_zoo
     - pip install -U sentencepiece protobuf datasets huggingface_hub hf_transfer
     - pip install -U unsloth
+    - pip install python-dotenv
 
     
 target:

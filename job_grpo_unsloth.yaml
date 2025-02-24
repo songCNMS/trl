@@ -9,12 +9,12 @@ environment:
 
   setup:
     - apt-get update -y
+    - pip install bitsandbytes accelerate xformers==0.0.29 peft trl triton
+    - pip install cut_cross_entropy unsloth_zoo
+    - pip install sentencepiece protobuf datasets huggingface_hub hf_transfer
     - pip install unsloth vllm
-    - pip install --upgrade pillow
-    - pip install diffusers
-    - pip install git+https://github.com/huggingface/trl.git@e95f9fb74a3c3647b86f251b7e230ec51c64b72b
-    - pip install omegaconf
-    - pip install pydotenv
+    - pip install omegaconf tqdm rich
+    - pip install python-dotenv
 
 target:
   service: sing
@@ -86,7 +86,7 @@ search:
   max_trials: 18
   params:
     - name: base_model
-      values: ["unsloth/Qwen2.5-14B-Instruct", "unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Phi-4"]
+      values: ["Qwen/Qwen2.5-14B-Instruct", "meta-llama/Llama-3.1-8B-Instruct", "microsoft/Phi-4"]
     - name: r
       values: [16, 32]  # or equivalently choice(0.5, 0.9, 0.99)
     - name: alpha

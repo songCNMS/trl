@@ -11,6 +11,8 @@ import os
 from datetime import datetime
 from omegaconf import OmegaConf
 
+cache_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface")
+os.environ["HF_CACHE_DIR"] = cache_dir
 
 
 if __name__ == "__main__":
@@ -19,6 +21,7 @@ if __name__ == "__main__":
     # unsloth/Meta-Llama-3.1-8B-Instruct, llama-3.1
     # unsloth/Qwen2.5-14B-Instruct, qwen2.5
     # unsloth/phi-4, phi-4
+    # ~/.cache/huggingface/models--unsloth--Meta-Llama-3.1-8B-Instruct/
     
     output_dir = cfg.get("output_dir", "logs/sft_unsloth/")
     base_model_name = cfg.get("base_model", "unsloth/Meta-Llama-3.1-8B-Instruct")
@@ -63,6 +66,7 @@ if __name__ == "__main__":
     max_seq_length = max([len(ds["instruction"]) + len(ds["output"]) for ds in dataset['train']])+200
     print(dataset, max_seq_length)
     
+    # base_model = os.path.join(cache_dir, "models--"+base_model_name.replace("/", "--"))
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name = base_model_name, # or choose "unsloth/Llama-3.2-1B-Instruct"
         max_seq_length = max_seq_length,
@@ -93,11 +97,23 @@ if __name__ == "__main__":
     dataset = dataset.map(formatting_prompts_func, batched = True,)
     dataset = dataset["train"].train_test_split(test_size=0.1)
 
+    if base_model_name.lower().find("phi") >= 0:
+            lora_target_modules = ["gate_proj", "up_proj", "down_proj"]
+    else:
+        lora_target_modules = [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+
     model = FastLanguageModel.get_peft_model(
         model,
         r = lora_r, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj",],
+        target_modules = lora_target_modules,
         lora_alpha = lora_alpha,
         lora_dropout = 0, # Supports any, but = 0 is optimized
         bias = "none",    # Supports any, but = "none" is optimized
@@ -169,7 +185,7 @@ if __name__ == "__main__":
 
     trainer_stats = trainer.train()
     
-    model.save_pretrained(output_dir_loc)
-    tokenizer.save_pretrained(output_dir_loc)
+    # model.save_pretrained(output_dir_loc)
+    # tokenizer.save_pretrained(output_dir_loc)
     model.save_pretrained_merged(f"{output_dir_loc}/adapter", tokenizer, save_method = "lora")
     model.save_pretrained_merged(f"{output_dir_loc}/vllm", tokenizer, save_method = "merged_16bit")
