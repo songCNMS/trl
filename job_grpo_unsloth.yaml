@@ -80,22 +80,15 @@ search:
         _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
     sku: 80G1
     command:
-    - python grpo_unsloth.py base_model={base_model}
+    - python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
-  max_trials: 3
-  parallel_trials: 3  # number of trials to - in parallel. Default: equals to max_trials.
+  max_trials: 18
   params:
     - name: base_model
-      values: ["unsloth/Qwen2.5-14B-Instruct", "unsloth/Meta-Llama-3.1-8B-Instruct"]
-    # - name: dataset
-    #   values: ["expert", "medium", "medium-replay", "random"]
-    # - name: eta
-    #   values: [0.1, 1.0, 10.0]  # or equivalently choice(0.5, 0.9, 0.99)
-    # - name: grad_norm
-    #   # spec: hyperdrive  # the default value
-    #   values: [0.1, 1.0, 10.0]
-    # - name: eta3
-    #   # spec: hyperdrive  # the default value
-    #   values: [0.1, 1.0, 10.0]
+      values: ["unsloth/Qwen2.5-14B-Instruct", "unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Phi-4"]
+    - name: r
+      values: [16, 32]  # or equivalently choice(0.5, 0.9, 0.99)
+    - name: alpha
+      values: [16, 32, 64]  # or equivalently choice(0.5, 0.9, 0.99)
       

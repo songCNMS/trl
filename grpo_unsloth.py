@@ -40,7 +40,9 @@ if __name__ == "__main__":
     cfg = OmegaConf.from_cli()
 
     base_models = cfg.get("base_model", "unsloth/Phi-4").split(",")
-
+    
+    lora_rank = cfg.get("r", 16)
+    lora_alpha = cfg.get("alpha", 16)
     # CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=unsloth/Phi-4
     # CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=unsloth/Qwen2.5-14B-Instruct
     # CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=unsloth/Meta-Llama-3.1-8B-Instruct
@@ -48,14 +50,15 @@ if __name__ == "__main__":
     for base_model in base_models:
         # base_model = cfg.get("base_model", "unsloth/Phi-4")
         model_name = base_model.split("/")[-1]
-
-        max_seq_length = 3096 # Can increase for longer reasoning traces
-        lora_rank = 32 # Larger rank = smarter, but slower
+        base_model = "models--" + base_model.replace("/", "--")
+        base_model = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface/hub", base_model)
+        max_seq_length = 4096 # Can increase for longer reasoning traces
+        lora_rank = lora_rank # Larger rank = smarter, but slower
 
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name = base_model,
             max_seq_length = max_seq_length,
-            load_in_4bit = True, # False for LoRA 16bit
+            load_in_4bit = False, # False for LoRA 16bit
             fast_inference = True, # Enable vLLM fast inference
             max_lora_rank = lora_rank,
             gpu_memory_utilization = 0.5, # Reduce if out of memory
@@ -70,7 +73,7 @@ if __name__ == "__main__":
             model,
             r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
             target_modules = lora_target_modules,
-            lora_alpha = lora_rank,
+            lora_alpha = lora_alpha,
             use_gradient_checkpointing = "unsloth", # Enable long context finetuning
             random_state = 3407,
         )
@@ -93,11 +96,11 @@ if __name__ == "__main__":
             fp16 = not is_bfloat16_supported(),
             per_device_train_batch_size = 2,
             gradient_accumulation_steps = 2, # Increase to 4 for smoother training
-            num_generations = 8, # Decrease if out of memory
+            num_generations = 4, # Decrease if out of memory
             max_prompt_length = max_seq_length,
             max_completion_length = 200,
             # num_train_epochs = 1, # Set to 1 for a full training run
-            max_steps = 20000,
+            max_steps = 5000,
             save_steps = 5000,
             max_grad_norm = 0.1,
             report_to = "none", # Can use Weights & Biases
@@ -128,7 +131,8 @@ if __name__ == "__main__":
         data_loc = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), "grpo_data_all.json")
         dataset = load_dataset("json", data_files=data_loc)["train"]
         # convert our dataset to the r1 prompt
-        dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"]))
+        dataset = dataset.map(lambda x: generate_r1_prompt(x["prompt"], x["target"])).filter(lambda x: len(x["prompt"]) + len(x["target"]) < max_seq_length)
+        
 
         # split the dataset into train and test
         train_test_split = dataset.train_test_split(test_size=0.1)

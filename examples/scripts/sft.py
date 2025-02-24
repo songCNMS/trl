@@ -78,6 +78,9 @@ from trl import (
 )
 from gpt_api_config import *
 
+os.environ["WANDB_API_KEY"] = WANDB_API_KEY
+os.environ["HF_KEY"] = HF_KEY
+
 
 if __name__ == "__main__":
     parser = TrlParser((SFTScriptArguments, SFTConfig, ModelConfig))
