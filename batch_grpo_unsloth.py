@@ -4,9 +4,9 @@ import os
 node_name = os.uname().nodename
 
 for base_model in [
-    "unsloth/Meta-Llama-3.1-8B-Instruct", 
-    "unsloth/Qwen2.5-14B-Instruct", 
-    "unsloth/phi-4"
+    "Qwen/Qwen2.5-14B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "microsoft/Phi-4",
 ]:
     read_name = base_model.replace("/", "_")
     prefix = base_model.split("/")[0]
@@ -15,4 +15,6 @@ for base_model in [
     alphas = [16, 32]
     for r in rs:
         for alpha in alphas:
-            os.system(f"python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}")
+            os.system(
+                f"python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}"
+            )

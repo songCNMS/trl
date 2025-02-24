@@ -36,6 +36,18 @@ from dotenv import load_dotenv
 cache_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface")
 os.environ["HF_CACHE_DIR"] = cache_dir
 
+def generate_r1_prompt(prompt, target):
+    r1_prefix = [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant. ",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return {
+        "prompt": r1_prefix,
+        "answer": target,
+    }
 
 if __name__ == "__main__":
     load_dotenv("./env_configs/.env")
@@ -66,18 +78,17 @@ if __name__ == "__main__":
             gpu_memory_utilization=0.6,  # Reduce if out of memory
         )
 
-        # if base_model.lower().find("phi") >= 0:
-        lora_target_modules = ["gate_proj", "up_proj", "down_proj"]
-        # else:
-        #     lora_target_modules = [
-        #         "q_proj",
-        #         "k_proj",
-        #         "v_proj",
-        #         "o_proj",
-        #         "gate_proj",
-        #         "up_proj",
-        #         "down_proj",
-        #     ]
+        if base_model.lower().find("phi") >= 0:
+            lora_target_modules = ["gate_proj", "up_proj", "down_proj"]
+        else:
+            lora_target_modules = [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",]
 
         model = FastLanguageModel.get_peft_model(
             model,
@@ -103,8 +114,8 @@ if __name__ == "__main__":
             logging_steps=100,
             bf16=is_bfloat16_supported(),
             fp16=not is_bfloat16_supported(),
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=2,  # Increase to 4 for smoother training
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=4,  # Increase to 4 for smoother training
             num_generations=8,  # Decrease if out of memory
             max_prompt_length=max_seq_length,
             max_completion_length=200,
@@ -115,20 +126,6 @@ if __name__ == "__main__":
             report_to="none",  # Can use Weights & Biases
             output_dir=output_dir,
         )
-
-        def generate_r1_prompt(prompt, target):
-            r1_prefix = [
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant. ",
-                },
-                {"role": "user", "content": prompt},
-                {"role": "assistant", "content": f"Answer: {target}"},
-            ]
-            return {
-                "prompt": r1_prefix,
-                "answer": target,
-            }
 
         #####################
         # Prepare and format dataset

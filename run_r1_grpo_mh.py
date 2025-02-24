@@ -89,9 +89,10 @@ def compute_f1(prediction, truth):
     return 2 * (prec * rec) / (prec + rec)
 
 
-def format_reward_func(completions, target, **kwargs):
+def format_reward_func(completions, answer, **kwargs):
     rewards = []
-    for completion, gt in zip(completions, target):
+    responses = [completion[0]['content'] for completion in completions]
+    for completion, gt in zip(responses, answer):
         try:
             # add synthetic <think> as its already part of the prompt and prefilled for the assistant to more easily match the regex
             # completion = "<think>" + completion
@@ -131,9 +132,10 @@ def format_reward_func(completions, target, **kwargs):
     return rewards
 
 
-def equation_reward_func(completions, target, **kwargs):
+def equation_reward_func(completions, answer, **kwargs):
     rewards = []
-    for completion, gt in zip(completions, target):
+    responses = [completion[0]['content'] for completion in completions]
+    for completion, gt in zip(responses, answer):
         try:
             f1 = compute_f1(gt, completion)
             rewards.append(f1)
