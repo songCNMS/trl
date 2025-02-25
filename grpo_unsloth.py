@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     lora_rank = cfg.get("r", 16)
     lora_alpha = cfg.get("alpha", 16)
-    load_in_4bit = cfg.get("in_4bit", True)
+    load_in_4bit = cfg.get("in_4bit", False)
     # CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=microsoft/Phi-4
     # CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=Qwen/Qwen2.5-14B-Instruct
     # CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=meta-llama/Llama-3.1-8B-Instruct

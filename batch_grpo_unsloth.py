@@ -19,6 +19,6 @@ for base_model in [
         for alpha in alphas:
             device = cnt % device_cnt
             os.popen(
-                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}"
+                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} in_4bit=True"
             )
             cnt += 1
