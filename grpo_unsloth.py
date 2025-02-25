@@ -57,7 +57,6 @@ if __name__ == "__main__":
 
     lora_rank = cfg.get("r", 16)
     lora_alpha = cfg.get("alpha", 16)
-    load_in_4bit = cfg.get("in_4bit", True)
     # CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=microsoft/Phi-4
     # CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=Qwen/Qwen2.5-14B-Instruct
     # CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=meta-llama/Llama-3.1-8B-Instruct
@@ -115,12 +114,12 @@ if __name__ == "__main__":
             logging_steps=100,
             bf16=is_bfloat16_supported(),
             fp16=not is_bfloat16_supported(),
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=2,  # Increase to 4 for smoother training
-            num_generations=8,  # Decrease if out of memory
+            per_device_train_batch_size=6,
+            gradient_accumulation_steps=4,  # Increase to 4 for smoother training
+            num_generations=6,  # Decrease if out of memory
             max_prompt_length=max_seq_length,
             max_completion_length=200,
-            num_train_epochs = 2, # Set to 1 for a full training run
+            num_train_epochs = 1, # Set to 1 for a full training run
             # max_steps=1000,
             save_steps=2000,
             max_grad_norm=0.1,
@@ -162,10 +161,10 @@ if __name__ == "__main__":
         # model.save_lora("grpo_saved_lora")
 
         model.save_pretrained_merged(
-            f"{output_dir}/{model_name}_GRPO_lora", tokenizer, save_method="lora"
+            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_GRPO_lora", tokenizer, save_method="lora"
         )
         model.save_pretrained_merged(
-            f"{output_dir}/{model_name}_GRPO_vllm",
+            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_GRPO_vllm",
             tokenizer,
             save_method="merged_16bit",
         )
