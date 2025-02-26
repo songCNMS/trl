@@ -13,12 +13,12 @@ for base_model in [
     read_name = base_model.replace("/", "_")
     prefix = base_model.split("/")[0]
     suffix = base_model.split("/")[1]
-    rs = [16]
-    alphas = [16]
+    rs = [16, 32]
+    alphas = [16, 32]
     for r in rs:
         for alpha in alphas:
             device = cnt % device_cnt
-            os.popen(
+            os.system(
                 f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}"
             )
             cnt += 1
