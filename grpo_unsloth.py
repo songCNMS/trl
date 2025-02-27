@@ -40,7 +40,7 @@ def generate_r1_prompt(prompt, target):
     r1_prefix = [
         {
             "role": "system",
-            "content": "You are a helpful assistant. ",
+            "content": "You are a helpful AI assistant.",
         },
         {"role": "user", "content": prompt},
     ]
@@ -58,6 +58,7 @@ if __name__ == "__main__":
     lora_rank = cfg.get("r", 16)
     lora_alpha = cfg.get("alpha", 16)
     load_in_4bit = cfg.get("in_4bit", True)
+    with_pretrained = cfg.get("sft", False)
     # CUDA_VISIBLE_DEVICES=0 python grpo_unsloth.py base_model=microsoft/Phi-4
     # CUDA_VISIBLE_DEVICES=1 python grpo_unsloth.py base_model=Qwen/Qwen2.5-14B-Instruct
     # CUDA_VISIBLE_DEVICES=2 python grpo_unsloth.py base_model=meta-llama/Llama-3.1-8B-Instruct
@@ -65,10 +66,21 @@ if __name__ == "__main__":
     for base_model in base_models:
         # base_model = cfg.get("base_model", "unsloth/Phi-4")
         model_name = base_model.split("/")[-1]
+        read_name = base_model.replace("/", "_")
         # base_model = os.path.join(cache_dir, "models--"+base_model.replace("/", "--"))
         max_seq_length = 4096  # Can increase for longer reasoning traces
         lora_rank = lora_rank  # Larger rank = smarter, but slower
 
+        
+        if with_pretrained:
+            acr_exp_name = "sft_unsloth_all_3"
+            if base_model.lower().find("llama") >= 0:
+                acr_exp_name = "sft_unsloth_all_2"
+            
+            model_loc = f"amlt/{acr_exp_name}/{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}/logs/sft_unsloth/{model_name}-r{lora_rank}-alpha{lora_alpha}/vllm"
+            if not os.path.exists(model_loc):                                
+                os.system(f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}")
+            base_model = model_loc
 
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=base_model,
@@ -120,7 +132,7 @@ if __name__ == "__main__":
             num_generations=4,  # Decrease if out of memory
             max_prompt_length=max_seq_length,
             max_completion_length=200,
-            num_train_epochs = 4, # Set to 1 for a full training run
+            num_train_epochs = 1, # Set to 1 for a full training run
             # max_steps=1000,
             save_steps=2000,
             max_grad_norm=0.1,
@@ -161,11 +173,12 @@ if __name__ == "__main__":
         """And now with the LoRA we just trained with GRPO - we first save the LoRA first!"""
         # model.save_lora("grpo_saved_lora")
 
+        suffix = ("wth_sft" if with_pretrained else "wot_sft")
         model.save_pretrained_merged(
-            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_GRPO_lora", tokenizer, save_method="lora"
+            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_{suffix}_GRPO_lora", tokenizer, save_method="lora"
         )
         model.save_pretrained_merged(
-            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_GRPO_vllm",
+            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_{suffix}_GRPO_vllm",
             tokenizer,
             save_method="merged_16bit",
         )

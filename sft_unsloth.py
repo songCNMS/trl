@@ -10,6 +10,8 @@ from unsloth.chat_templates import train_on_responses_only
 import os
 from datetime import datetime
 from omegaconf import OmegaConf
+from grpo_unsloth import generate_r1_prompt
+
 
 cache_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface")
 os.environ["HF_CACHE_DIR"] = cache_dir
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     lora_alpha = cfg.get("alpha", 16)
 
     dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-    load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
+    load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
     # 4bit pre quantized models we support for 4x faster downloading + no OOMs.
     fourbit_models = [
@@ -74,23 +76,28 @@ if __name__ == "__main__":
         load_in_4bit = load_in_4bit,
     )
     
-    alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+    # alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
-    ### Instruction:
-    {}
+    # ### Instruction:
+    # {}
 
-    ### Response:
-    {}"""
+    # ### Response:
+    # {}"""
 
     EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
     def formatting_prompts_func(examples):
         instructions = examples["instruction"]
-        inputs       = examples["input"]
         outputs      = examples["output"]
         texts = []
         for instruction, input, output in zip(instructions, inputs, outputs):
             # Must add EOS_TOKEN, otherwise your generation will go on forever!
-            text = alpaca_prompt.format(instruction, output) + EOS_TOKEN
+            # text = alpaca_prompt.format(instruction, output) + EOS_TOKEN
+            messages = generate_r1_prompt(instruction, input)
+            text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
             texts.append(text)
         return { "text" : texts, }
 
@@ -157,8 +164,8 @@ if __name__ == "__main__":
         # data_collator=collator,
         # data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
         args = TrainingArguments(
-            per_device_train_batch_size = 2,
-            gradient_accumulation_steps = 4,
+            per_device_train_batch_size = 1,
+            gradient_accumulation_steps = 1,
             warmup_steps = 10,
             num_train_epochs = 1, # Set this for 1 full training run.
             # max_steps = 60,

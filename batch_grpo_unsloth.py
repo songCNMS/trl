@@ -6,19 +6,22 @@ node_name = os.uname().nodename
 cnt = 0
 device_cnt = torch.cuda.device_count()
 for base_model in [
-    "Qwen/Qwen2.5-14B-Instruct",
-    "meta-llama/Llama-3.1-8B-Instruct",
-    "microsoft/Phi-4",
+    # "Qwen/Qwen2.5-14B-Instruct",
+    # "meta-llama/Llama-3.1-8B-Instruct",
+    # "microsoft/Phi-4",
+    # "unsloth/Meta-Llama-3.1-8B-Instruct", 
+    "unsloth/Qwen2.5-14B-Instruct", 
+    # "unsloth/phi-4"
 ]:
     read_name = base_model.replace("/", "_")
     prefix = base_model.split("/")[0]
     suffix = base_model.split("/")[1]
-    rs = [16, 32]
-    alphas = [16, 32]
+    rs = [16]
+    alphas = [16]
     for r in rs:
         for alpha in alphas:
             device = cnt % device_cnt
             os.system(
-                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha}"
+                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft=true in_4bit=false"
             )
             cnt += 1
