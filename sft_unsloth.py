@@ -29,10 +29,16 @@ if __name__ == "__main__":
     base_model_name = cfg.get("base_model", "unsloth/Meta-Llama-3.1-8B-Instruct")
     read_model_name = base_model_name.split("/")[-1]
     chat_template_name = "llama-3.1"
+    response_part = "<|start_header_id|>assistant<|end_header_id|>"
+    instruction_part = "<|start_header_id|>user<|end_header_id|>"
     if base_model_name.lower().find("qwen") >= 0:
         chat_template_name = "qwen2.5"
+        response_part = "<|im_start|>assistant\n"
+        instruction_part = "<|im_start|>user\n"
     if base_model_name.lower().find("phi") >= 0:
         chat_template_name = "phi-4"
+        response_part = "<|im_start|>assistant<|im_sep|>"
+        instruction_part = "<|im_start|>user<|im_sep|>"
         
     lora_r = cfg.get("r", 16)
     lora_alpha = cfg.get("alpha", 16)
@@ -76,18 +82,22 @@ if __name__ == "__main__":
         load_in_4bit = load_in_4bit,
     )
     
+    response_template = "### Response: " 
     def formatting_prompts_func(examples):
         instruction = examples["instruction"]
         output      = examples["output"]
         messages = generate_r1_prompt(instruction, output)
+        # messages["prompt"][-1]["content"] += f"\n {response_template}"
+        messages["prompt"].append({"role": "assistant", "content": output})
         text = tokenizer.apply_chat_template(
             messages["prompt"],
             tokenize=False,
-            add_generation_prompt=True,
+            add_generation_prompt=False,
         )
-        return {"text": text, "label": output}
+        return {"text": text}
 
     dataset = dataset.map(lambda x: formatting_prompts_func(x))
+    dataset = dataset.remove_columns(['instruction', 'output', 'input'])
     dataset = dataset.train_test_split(test_size=0.1)
 
     if base_model_name.lower().find("phi") >= 0:
@@ -130,8 +140,9 @@ if __name__ == "__main__":
         text = example["text"]
         return text
     
-    response_template = "### Response:"
-    collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
+    # instruction_template = "Your task"
+    # collator = DataCollatorForCompletionOnlyLM(instruction_template=instruction_template, response_template=response_template, tokenizer=tokenizer, mlm=False)
+
     # peft_config=get_peft_config(model_config)
     
     trainer = SFTTrainer(
@@ -144,7 +155,7 @@ if __name__ == "__main__":
         dataset_num_proc = 2,
         packing = False, # Can make training 5x faster for short sequences.
         # data_collator=collator,
-        # data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
+        data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
         args = TrainingArguments(
             per_device_train_batch_size = 4,
             gradient_accumulation_steps = 4,
@@ -164,12 +175,17 @@ if __name__ == "__main__":
             report_to = "none", # Use this for WandB etc
         ),
     )
+    
+    sample_text = dataset["train"][0]["text"]
+    print(sample_text)
+    print(instruction_part, response_part)
+    
 
-    # trainer = train_on_responses_only(
-    #     trainer,
-    #     instruction_part = "Instruction:",
-    #     response_part = "Response:",
-    # )
+    trainer = train_on_responses_only(
+        trainer,
+        instruction_part = instruction_part,
+        response_part = response_part,
+    )
 
 
     trainer_stats = trainer.train()

@@ -11,7 +11,8 @@ environment:
     # - export PATH=/home/aiscuser/.local/bin:$$PATH
     # - export PYTHONPATH=$$PWD:$$PYTHONPATH
     - pip install omegaconf tqdm rich
-    - pip install -U transformers 
+    - pip install -U transformers
+    - pip install -U vllm 
     - pip install -U bitsandbytes accelerate xformers==0.0.29 peft trl triton
     - pip install -U cut_cross_entropy unsloth_zoo
     - pip install -U sentencepiece protobuf datasets huggingface_hub hf_transfer
