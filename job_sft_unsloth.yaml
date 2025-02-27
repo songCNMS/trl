@@ -94,7 +94,7 @@ search:
     - python sft_unsloth.py base_model={base_model} r={r} alpha={alpha}
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
-  max_trials: 30
+  max_trials: 27
   params:
     - name: base_model
       values: ["unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4"]
