@@ -38,7 +38,7 @@ if __name__ == "__main__":
     lora_alpha = cfg.get("alpha", 16)
 
     dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-    load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+    load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
 
     # 4bit pre quantized models we support for 4x faster downloading + no OOMs.
     fourbit_models = [
@@ -64,8 +64,8 @@ if __name__ == "__main__":
 
     data_dir_loc = os.getenv('AMLT_DATA_DIR', "data/")
     print(data_dir_loc)
-    dataset = load_dataset("json", data_files=f"{data_dir_loc}/sft_data_all.json")
-    max_seq_length = max([len(ds["instruction"]) + len(ds["output"]) for ds in dataset['train']])+200
+    dataset = load_dataset("json", data_files=f"{data_dir_loc}/sft_data_all.json")['train']
+    max_seq_length = max([len(ds["instruction"]) + len(ds["output"]) for ds in dataset])+200
     print(dataset, max_seq_length)
     
     # base_model = os.path.join(cache_dir, "models--"+base_model_name.replace("/", "--"))
@@ -76,33 +76,19 @@ if __name__ == "__main__":
         load_in_4bit = load_in_4bit,
     )
     
-    # alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
-
-    # ### Instruction:
-    # {}
-
-    # ### Response:
-    # {}"""
-
-    EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
     def formatting_prompts_func(examples):
-        instructions = examples["instruction"]
-        outputs      = examples["output"]
-        texts = []
-        for instruction, input, output in zip(instructions, inputs, outputs):
-            # Must add EOS_TOKEN, otherwise your generation will go on forever!
-            # text = alpaca_prompt.format(instruction, output) + EOS_TOKEN
-            messages = generate_r1_prompt(instruction, input)
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-            texts.append(text)
-        return { "text" : texts, }
+        instruction = examples["instruction"]
+        output      = examples["output"]
+        messages = generate_r1_prompt(instruction, output)
+        text = tokenizer.apply_chat_template(
+            messages["prompt"],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        return {"text": text, "label": output}
 
-    dataset = dataset.map(formatting_prompts_func, batched = True,)
-    dataset = dataset["train"].train_test_split(test_size=0.1)
+    dataset = dataset.map(lambda x: formatting_prompts_func(x))
+    dataset = dataset.train_test_split(test_size=0.1)
 
     if base_model_name.lower().find("phi") >= 0:
             lora_target_modules = ["gate_proj", "up_proj", "down_proj"]
@@ -131,10 +117,6 @@ if __name__ == "__main__":
         loftq_config = None, # And LoftQ
     )
 
-    # tokenizer = get_chat_template(
-    #     tokenizer,
-    #     chat_template = chat_template_name,
-    # )
 
     output_dir_loc = os.path.join(os.getenv('AMLT_OUTPUT_DIR', "data/"))
     # sub_dir_loc = datetime.today().strftime("%Y%m%d-%H%M%S")
@@ -164,8 +146,8 @@ if __name__ == "__main__":
         # data_collator=collator,
         # data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer),
         args = TrainingArguments(
-            per_device_train_batch_size = 1,
-            gradient_accumulation_steps = 1,
+            per_device_train_batch_size = 4,
+            gradient_accumulation_steps = 4,
             warmup_steps = 10,
             num_train_epochs = 1, # Set this for 1 full training run.
             # max_steps = 60,
