@@ -76,7 +76,7 @@ if __name__ == "__main__":
             load_in_4bit=load_in_4bit,  # False for LoRA 16bit
             fast_inference=True,  # Enable vLLM fast inference
             max_lora_rank=lora_rank,
-            gpu_memory_utilization=0.6,  # Reduce if out of memory
+            gpu_memory_utilization=0.5,  # Reduce if out of memory
         )
 
         if base_model.lower().find("phi") >= 0:
@@ -115,12 +115,12 @@ if __name__ == "__main__":
             logging_steps=100,
             bf16=is_bfloat16_supported(),
             fp16=not is_bfloat16_supported(),
-            per_device_train_batch_size=6,
-            gradient_accumulation_steps=4,  # Increase to 4 for smoother training
-            num_generations=6,  # Decrease if out of memory
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=2,  # Increase to 4 for smoother training
+            num_generations=4,  # Decrease if out of memory
             max_prompt_length=max_seq_length,
             max_completion_length=200,
-            num_train_epochs = 1, # Set to 1 for a full training run
+            num_train_epochs = 4, # Set to 1 for a full training run
             # max_steps=1000,
             save_steps=2000,
             max_grad_norm=0.1,

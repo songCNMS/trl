@@ -149,7 +149,8 @@ def equation_reward_func(completions, answer, **kwargs):
                     )
                     with open(log_file, "a") as f:
                         f.write(f"\n\n==============\n")
-                        f.write(completion)
+                        f.write(f"completion: {completion}")
+                        f.write(f"ground true: {gt}")
         except Exception as ex:
             print("ex: ", ex)
             rewards.append(0.0)
