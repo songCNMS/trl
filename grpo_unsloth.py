@@ -28,6 +28,7 @@ from datasets import load_dataset, Dataset
 from run_r1_grpo_mh import equation_reward_func, format_reward_func
 from unsloth import is_bfloat16_supported
 import torch
+import sys
 import os
 from trl import GRPOConfig, GRPOTrainer
 from omegaconf import OmegaConf
@@ -35,6 +36,9 @@ from dotenv import load_dotenv
 
 cache_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface")
 os.environ["HF_CACHE_DIR"] = cache_dir
+
+model_dir_loc = os.getenv("AMLT_DATA_DIR", "amlt")
+
 
 def generate_r1_prompt(prompt, target):
     r1_prefix = [
@@ -66,6 +70,7 @@ if __name__ == "__main__":
     for base_model in base_models:
         # base_model = cfg.get("base_model", "unsloth/Phi-4")
         model_name = base_model.split("/")[-1]
+        suffix = model_name
         read_name = base_model.replace("/", "_")
         # base_model = os.path.join(cache_dir, "models--"+base_model.replace("/", "--"))
         max_seq_length = 4096  # Can increase for longer reasoning traces
@@ -73,13 +78,10 @@ if __name__ == "__main__":
 
         
         if with_pretrained:
-            acr_exp_name = "sft_unsloth_all_3"
-            if base_model.lower().find("llama") >= 0:
-                acr_exp_name = "sft_unsloth_all_2"
-            
-            model_loc = f"amlt/{acr_exp_name}/{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}/logs/sft_unsloth/{model_name}-r{lora_rank}-alpha{lora_alpha}/vllm"
+            acr_exp_name = "sft_unsloth_all"
+            model_loc = f"{model_dir_loc}/{acr_exp_name}/{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}/logs/sft_unsloth/{suffix}-r{lora_rank}-alpha{lora_alpha}/vllm"
             if not os.path.exists(model_loc):                                
-                os.system(f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}")
+                os.system(f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}")                                
             base_model = model_loc
 
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -134,7 +136,7 @@ if __name__ == "__main__":
             max_completion_length=200,
             num_train_epochs = 1, # Set to 1 for a full training run
             # max_steps=1000,
-            save_steps=2000,
+            save_steps=10000,
             max_grad_norm=0.1,
             report_to="none",  # Can use Weights & Biases
             output_dir=output_dir,
