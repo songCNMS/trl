@@ -1,6 +1,13 @@
 import os
 import torch
+from omegaconf import OmegaConf
 
+
+cfg = OmegaConf.from_cli()
+
+rs = [eval(r) for r in str(cfg.get("r", "16")).split(",")]
+alphas = [eval(alpha) for alpha in str(cfg.get("alpha", "16")).split(",")]
+device = cfg.device
 
 node_name = os.uname().nodename
 cnt = 0
@@ -9,18 +16,19 @@ for base_model in [
     # "Qwen/Qwen2.5-14B-Instruct",
     # "meta-llama/Llama-3.1-8B-Instruct",
     # "microsoft/Phi-4",
-    "unsloth/Meta-Llama-3.1-8B-Instruct", 
-    "unsloth/Qwen2.5-14B-Instruct", 
+    "unsloth/Meta-Llama-3.1-8B-Instruct",
+    "unsloth/Qwen2.5-14B-Instruct",
+    # "unsloth/Qwen2.5-7B-Instruct",
     "unsloth/phi-4"
 ]:
     read_name = base_model.replace("/", "_")
     prefix = base_model.split("/")[0]
     suffix = base_model.split("/")[1]
-    rs = [16, 32]
-    alphas = [16, 32]
+    # rs = [16, 32]
+    # alphas = [16, 32]
     for r in rs:
         for alpha in alphas:
-            device = cnt % device_cnt
+            # device = cnt % device_cnt
             os.system(
                 f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft=true in_4bit=false"
             )

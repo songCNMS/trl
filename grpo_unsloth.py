@@ -53,6 +53,7 @@ def generate_r1_prompt(prompt, target):
         "answer": target,
     }
 
+
 if __name__ == "__main__":
     load_dotenv("./env_configs/.env")
     cfg = OmegaConf.from_cli()
@@ -76,12 +77,13 @@ if __name__ == "__main__":
         max_seq_length = 4096  # Can increase for longer reasoning traces
         lora_rank = lora_rank  # Larger rank = smarter, but slower
 
-        
         if with_pretrained:
             acr_exp_name = "sft_unsloth_all"
             model_loc = f"{model_dir_loc}/{acr_exp_name}/{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}/logs/sft_unsloth/{suffix}-r{lora_rank}-alpha{lora_alpha}/vllm"
-            if not os.path.exists(model_loc):                                
-                os.system(f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}")                                
+            if not os.path.exists(model_loc):
+                os.system(
+                    f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}"
+                )
             base_model = model_loc
 
         model, tokenizer = FastLanguageModel.from_pretrained(
@@ -90,7 +92,7 @@ if __name__ == "__main__":
             load_in_4bit=load_in_4bit,  # False for LoRA 16bit
             fast_inference=True,  # Enable vLLM fast inference
             max_lora_rank=lora_rank,
-            gpu_memory_utilization=0.5,  # Reduce if out of memory
+            gpu_memory_utilization=0.7,  # Reduce if out of memory
         )
 
         if base_model.lower().find("phi") >= 0:
@@ -103,7 +105,8 @@ if __name__ == "__main__":
                 "o_proj",
                 "gate_proj",
                 "up_proj",
-                "down_proj",]
+                "down_proj",
+            ]
 
         model = FastLanguageModel.get_peft_model(
             model,
@@ -116,7 +119,7 @@ if __name__ == "__main__":
 
         output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), model_name)
         os.makedirs(output_dir, exist_ok=True)
-        
+
         training_args = GRPOConfig(
             use_vllm=True,  # use vLLM for fast inference!
             learning_rate=5e-6,
@@ -134,7 +137,7 @@ if __name__ == "__main__":
             num_generations=4,  # Decrease if out of memory
             max_prompt_length=max_seq_length,
             max_completion_length=200,
-            num_train_epochs = 1, # Set to 1 for a full training run
+            num_train_epochs=1,  # Set to 1 for a full training run
             # max_steps=1000,
             save_steps=10000,
             max_grad_norm=0.1,
@@ -152,7 +155,10 @@ if __name__ == "__main__":
         # convert our dataset to the r1 prompt
         dataset = dataset.map(
             lambda x: generate_r1_prompt(x["prompt"], x["target"])
-        ).filter(lambda x: sum(len(c["content"]) for c in x['prompt']) + len(x["answer"]) < max_seq_length-100)
+        ).filter(
+            lambda x: sum(len(c["content"]) for c in x["prompt"]) + len(x["answer"])
+            < max_seq_length - 100
+        )
 
         # split the dataset into train and test
         train_test_split = dataset.train_test_split(test_size=0.1)
@@ -175,9 +181,11 @@ if __name__ == "__main__":
         """And now with the LoRA we just trained with GRPO - we first save the LoRA first!"""
         # model.save_lora("grpo_saved_lora")
 
-        suffix = ("wth_sft" if with_pretrained else "wot_sft")
+        suffix = "wth_sft" if with_pretrained else "wot_sft"
         model.save_pretrained_merged(
-            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_{suffix}_GRPO_lora", tokenizer, save_method="lora"
+            f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_{suffix}_GRPO_lora",
+            tokenizer,
+            save_method="lora",
         )
         model.save_pretrained_merged(
             f"{output_dir}/{model_name}_r{lora_rank}_alpha_{lora_alpha}_{suffix}_GRPO_vllm",
