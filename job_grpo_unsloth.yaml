@@ -18,8 +18,8 @@ environment:
 
 target:
   service: sing
-  # name: palisades03
-  name: msrresrchvc
+  name: palisades03
+  # name: msrresrchvc
   # msrresrchvc: A100-80G
   # name: msrresrchlab
   # name: msroctobasicvc
@@ -78,19 +78,19 @@ search:
     submit_args:
       env:
         _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/RAG-WUS/providers/Microsoft.ManagedIdentity/userAssignedIdentities/rag-workspace-eastus-mi"
-    sku: 80G1
+    sku: 40G1
     command:
-    - python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft={sft} in_4bit=false
+    - python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft={sft} in_4bit=false device=0
   type: hyperdrive  # hyperparameter search type: hyperdrive, random, grid.  Default: hyperdrive
   sampling: grid  # how to explore the hyperparameter space: random, grid or bayesian. Default: bayesian
-  max_trials: 24
+  max_trials: 32
   params:
     - name: base_model
       # values: ["unsloth/Qwen2.5-14B-Instruct"]
-      values: ["unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4"]
+      values: ["unsloth/Meta-Llama-3.1-8B-Instruct", "unsloth/Qwen2.5-14B-Instruct", "unsloth/phi-4", "unsloth/Qwen2.5-7B-Instruct"]
       # values: ["Qwen/Qwen2.5-14B-Instruct", "meta-llama/Llama-3.1-8B-Instruct", "microsoft/Phi-4"]
     - name: sft
-      values: ["true"]
+      values: ["true", "false"]
     - name: r
       values: [16, 32]  # or equivalently choice(0.5, 0.9, 0.99)
     - name: alpha

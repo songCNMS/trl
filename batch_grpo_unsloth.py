@@ -7,7 +7,7 @@ cfg = OmegaConf.from_cli()
 
 rs = [eval(r) for r in str(cfg.get("r", "16")).split(",")]
 alphas = [eval(alpha) for alpha in str(cfg.get("alpha", "16")).split(",")]
-device = cfg.device
+device = cfg.get("device", 0)
 
 node_name = os.uname().nodename
 cnt = 0
@@ -18,7 +18,7 @@ for base_model in [
     # "microsoft/Phi-4",
     "unsloth/Meta-Llama-3.1-8B-Instruct",
     "unsloth/Qwen2.5-14B-Instruct",
-    # "unsloth/Qwen2.5-7B-Instruct",
+    "unsloth/Qwen2.5-7B-Instruct",
     "unsloth/phi-4"
 ]:
     read_name = base_model.replace("/", "_")
@@ -33,6 +33,6 @@ for base_model in [
                 f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft=true in_4bit=false"
             )
             os.system(
-                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft=true in_4bit=false"
+                f"CUDA_VISIBLE_DEVICES={device} python grpo_unsloth.py base_model={base_model} r={r} alpha={alpha} sft=false in_4bit=false"
             )
             cnt += 1

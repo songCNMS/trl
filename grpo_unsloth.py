@@ -37,7 +37,7 @@ from dotenv import load_dotenv
 cache_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "~/.cache/"), "huggingface")
 os.environ["HF_CACHE_DIR"] = cache_dir
 
-model_dir_loc = os.getenv("AMLT_DATA_DIR", "amlt")
+model_dir_loc = os.getenv("AMLT_DATA_DIR", "data")
 
 
 def generate_r1_prompt(prompt, target):
@@ -79,7 +79,8 @@ if __name__ == "__main__":
 
         if with_pretrained:
             acr_exp_name = "sft_unsloth_all"
-            model_loc = f"{model_dir_loc}/{acr_exp_name}/{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}/logs/sft_unsloth/{suffix}-r{lora_rank}-alpha{lora_alpha}/vllm"
+            model_loc = f"{model_dir_loc}/{acr_exp_name}/{suffix}/{suffix}_r{lora_rank}_alpha_{lora_alpha}_sft_vllm"
+            # sft_unsloth_all/Qwen2.5-7B-Instruct/Qwen2.5-7B-Instruct_r16_alpha_16_wot_sft_GRPO_vllm/
             if not os.path.exists(model_loc):
                 os.system(
                     f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}"
@@ -117,7 +118,8 @@ if __name__ == "__main__":
             random_state=3407,
         )
 
-        output_dir = os.path.join(os.getenv("AMLT_OUTPUT_DIR", "models/"), model_name)
+        output_dir = os.path.join(os.getenv("AMLT_DATA_DIR", "data/"), model_name)
+        output_dir = f"{output_dir}/sft_unsloth_all/{model_name}/"
         os.makedirs(output_dir, exist_ok=True)
 
         training_args = GRPOConfig(
@@ -192,3 +194,4 @@ if __name__ == "__main__":
             tokenizer,
             save_method="merged_16bit",
         )
+        # sft_unsloth_all/Qwen2.5-7B-Instruct/Qwen2.5-7B-Instruct_r16_alpha_16_wot_sft_GRPO_vllm/
