@@ -18,11 +18,11 @@ environment:
 
 target:
   service: sing
-  name: palisades03
+  # name: palisades03
   # name: msrresrchvc
   # msrresrchvc: A100-80G
   # name: msrresrchlab
-  # name: msroctobasicvc
+  name: msroctobasicvc
   workspace_name: rag-workspace-eastus
 
 data:

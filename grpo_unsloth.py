@@ -79,11 +79,14 @@ if __name__ == "__main__":
 
         if with_pretrained:
             acr_exp_name = "sft_unsloth_all"
-            model_loc = f"{model_dir_loc}/{acr_exp_name}/{suffix}/{suffix}_r{lora_rank}_alpha_{lora_alpha}_sft_vllm"
+            if suffix == "Qwen2.5-7B-Instruct":
+                model_loc = f"{model_dir_loc}/{acr_exp_name}/{suffix}/{suffix}_r{lora_rank}_alpha_{lora_alpha}_sft_vllm"
+            else:
+                model_loc = f"{model_dir_loc}/{acr_exp_name}/{suffix}/{suffix}_r{lora_rank}_alpha{lora_alpha}_sft_vllm"
             # sft_unsloth_all/Qwen2.5-7B-Instruct/Qwen2.5-7B-Instruct_r16_alpha_16_wot_sft_GRPO_vllm/
             if not os.path.exists(model_loc):
                 os.system(
-                    f"amlt results download {acr_exp_name} :{acr_exp_name}_alp_{lora_alpha}_bas_{read_name}_r_{lora_rank}"
+                    f"amlt sto download {model_loc} {model_loc}"
                 )
             base_model = model_loc
 
@@ -93,7 +96,7 @@ if __name__ == "__main__":
             load_in_4bit=load_in_4bit,  # False for LoRA 16bit
             fast_inference=True,  # Enable vLLM fast inference
             max_lora_rank=lora_rank,
-            gpu_memory_utilization=0.7,  # Reduce if out of memory
+            gpu_memory_utilization=0.85,  # Reduce if out of memory
         )
 
         if base_model.lower().find("phi") >= 0:
